@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+ <html>
+   <head>
+     <title>Calendar GUI</title>
+     <script src="jquery-3.7.1.min.js" ></script>
+      <style>
+        .timepart {
+          width: 3em;
+        }
+
+        .day {
+          text-align: left;
+          vertical-align: top;
+          width: 120px;
+          height: 80px;
+        }
+
+        .year_field {
+           width: 4em;
+           border: 0px;
+           font-weight: bold;
+        }
+        .month_field {
+           border: 0px;
+           font-weight: bold;
+        }
+        .day_field {
+           width: 3em;
+           border: 0px;
+           font-weight: bold;
+        }
+        
+        .hour {
+          text-align: left;
+          vertical-align: top;
+          width: 900px;
+          height: 100px;
+        }
+        
+        #ui {
+           border: 1px solid;
+        }
+
+        .today {
+          font-weight: bold;
+          text-decoration: underline;
+        }
+
+        caption {
+          caption-side: top;
+          text-align: center;
+        }
+
+        .prev {
+          text-align: left;
+        }
+        .next {
+          text-align: right;
+        }
+      </style>
+   </head>
+
+   <body>
+     <div id="calendar" style="width: 99%">
+
+       <form name="calendar" action="" method="GET">
+         <div style="padding: 5px;">
+           <label>
+             Calendar: <select name="kind" id="kind"></select>
+           </label>
+           <label>
+             TimeZone: <select name="zone" id="zone"></select>
+           </label>
+           <span style="text-align: right;">
+             Time: <span class="time beforenoon">
+               <span id="hour" class="timepart"></span>:<span id="minute" class="timepart"></span>:<span id="second" class="timepart"></span>
+             </span>
+           </span>
+         </div>
+         <div style="padding: 5px;">
+           <label>
+             Display: <select name="display" id="display">
+             </select>
+           </label>
+         </div>
+       </form> 
+
+       <table id="ui" border>
+         <tbody class="container"></tbody>
+       </table>
+     </div>
+   </body>
+
+   <script async>
+     const calendar = $('#calendar');
+     const months   = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+     const days     = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+     const storage_items = ['display', 'kind', 'zone'];
+     const options = {
+       hour: {
+         display: 'Hour',
+         firsts: {
+           'minute:top': 'Top of the hour',
+           'minute:now': 'Now'
+         }
+       },
+       day: {
+         display: 'Day',
+         firsts: {
+           'hour:midnight': 'Midnight',
+           'hour:now': 'Current'
+         }
+       },
+       week: {
+         display: 'Week',
+         firsts: {
+           'day:sunday': 'Sunday',
+           'day:monday': 'Monday',
+           'day:today': 'Today'
+         }
+       },
+       work: {
+         display: 'Work Week',
+         firsts: {
+           'day:sunday': 'Sunday',
+           'day:monday': 'Monday',
+           'day:today': 'Today'
+         }
+       },
+       month: {
+         display: 'Month',
+         firsts: {
+           'day:sunday': 'Sunday',
+           'day:monday': 'Monday',
+           'day:today': 'Today'
+         }
+       },
+       quarter: {
+         display: 'Quarter',
+         firsts: {
+           'month:first': 'First',
+           'month:now': 'Current',
+           'month:last': 'Last'
+         }
+       },
+       year: {
+         display: 'Year',
+         firsts: {
+           'month:january': 'January', 
+           'month:quarter': 'Quarter', 
+           'month:current': 'Current'
+         }
+       }
+     };
+     var now        = new Date();
+     
+     function capitalize(v){ return v[0].toUpperCase() + v.slice(1);    }
+     function fmt(v) {       return ( parseInt(v) < 10 ) ? `0${v}` : v; }
+     function monthToString(m) { return months[m]; }
+     function quarterFromMonth(v) { return Math.ceil((v + 1) / 3); }
+
+     function updateDateTime() {
+       now = new Date();
+       $('input.year').val(parseInt(now.getFullYear()));
+       $('input.day').val(fmt(parseInt(now.getDate())));
+
+       $('#hour').text(fmt(now.getHours()));
+       $('#minute').text(fmt(now.getMinutes()));
+       $('#second').text(fmt(now.getSeconds()));
+       
+       let colv = now.getHours() * 11, bgcolv = 256 / now.getHours();
+       $('.time').css(( now.getHours() < 12 ) ? 'color' : 'background-color', `rgb(${bgcolv}, ${bgcolv}, ${bgcolv})`);
+       $('.time').css(( now.getHours() < 12 ) ? 'background-color' : 'color', `rgb(${colv}, ${colv}, ${colv})`);
+       $('.time').css('padding', '5px');
+     }
+
+     $('input.year,select.month,input.day').on('mouseover', function () {
+       $(this).css({'border': '1px solid'});
+     }).on('mouseout', function () {
+       $(this).css({'border': '0px solid'});
+     });
+
+     storage_items.forEach(function (v) {
+       $(`#${v}`).on('blur', function () {
+         populateStorage($(this).attr('id'));
+       });
+     });
+
+     function updateWDays(parent, abbrev) {
+       parent.empty();
+       let val = parent.find('.first').val();
+       let first = ( val == 'week:today' ) ? now.getDay() : 0;
+       let sorted_days = [...days.slice(first, 7), ...days.slice(0, first)];
+       abbrev ??= false;
+       if ( $('#display').val() == 'work' ) {
+         sorted_days = sorted_days.slice(0, 5)
+       }
+       sorted_days.forEach(function (v, i) {
+         parent.append(`<th id="row${i}">${( abbrev === true ) ? v.slice(0, 3) : v}</th>`);
+       });
+     }
+     function populateStorage(e) {
+       let el = $(`#${e}`);
+       let val = ( el.prop('tagName').toLowerCase() == 'select' ) ? el.children('option:selected').val() : el.val();
+       localStorage.setItem(e, val);
+     }
+     function loadStorage(e) {
+       let el = $(`#${e}`);
+       if ( el.prop('tagName').toLowerCase() == 'select' ) {
+         val = localStorage.getItem(e);
+         el.each(function (i, v) {
+           $(v).prop('selected', ( $(v).val() != val ) ? null : 'selected');
+         });
+       } else {
+         el.val(localStorage.getItem(e));
+       }
+     }
+
+     function loopy(parent, init, limit, func) {
+        for (let i=init; i < limit; i++) {
+          parent.append(func(i));
+        }
+     }
+
+     function buildCalendar(year, month, abbrev) {
+       year ??= now.getFullYear();
+       month ??= now.getMonth();
+       updateWDays($('#ui .container').find('.wdays'), abbrev);
+       let rowi = 1;
+       let row = $('#ui .container').append(`<tr class="row${rowi}">`)
+       loopy(row, 1, 32, function (i) {
+         row.append(`<td class="cell${i} day ${(i == now.getDate()) ? ' today' : '' }" data-year="${year}" data-month="${month}" data-date="${i}">${fmt(i)}</td>`);
+         if ( i % 7 == 0 ) {
+           $('#ui .container').append(`<tr class="row${rowi++}">`);
+         }
+       });
+     }
+
+     function loadUI(display, format) {
+       $('#ui .container').empty();
+       let rowi = 1, row, cell, tbl, cspan = null;
+       switch (display) {
+         case 'hour':
+           loopy($('#ui .container'), 0, 60, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour"><span class="time">${fmt(now.getHours())}:${fmt(i)}</span></td></tr>`);
+           break;
+         case 'day':
+           loopy($('#ui .container'), 0, 24, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour">${fmt(i)}</td></tr>`);
+           break;
+         case 'week':
+           row = $('<tr class="days row1">');
+           loopy(row, 1, 8, (i) => `<td class="cell${i} day">${fmt(i)}</td>`);
+           $('#ui .container').append(row);
+           cspan = 5;
+           break;
+         case 'work':
+           row = $('<tr class="days row1">');
+           loopy(row, 1, 6, (i) => `<td class="cell${i} day">${fmt(i)}</td>`);
+           $('#ui .container').append(row);
+           cspan = 3;
+           break;
+         case 'month':
+           buildCalendar()
+           cspan = 5;
+           break;
+         case 'quarter':
+           row = $('<tr class="months row1"></tr>')
+           months.filter((e, i) => quarterFromMonth(i) === quarterFromMonth(now.getMonth())).forEach(function (v, i) {
+             cell = row.append(`<td class="cell${i+1}">`); 
+             tbl  = cell.append('<table cellpadding="0" cellspacing="0" border>');
+             tbl.append(`<caption>${v}</caption>`);
+             tbl.append('<thead><tr class="wdays">');
+             tbl.append('<tbody class="days">');
+             tbl.append('<tfoot>');
+           });
+           $('#ui .container').append(row)
+
+           buildCalendar();
+           cspan = 5;
+           break;
+         case 'year':
+           loopy($('#ui .container'), 1, 5, (i) => `<tr class="quarter${quarterFromMonth(i)}"><td class="cell1"></td></tr>`);
+           months.forEach(function (v, i) {
+             cell = $(`#ui .quarter${quarterFromMonth(i)}`).append('<td class="cell2">');
+             tbl  = cell.append('<table cellpadding="0" cellspacing="0" border>');
+             tbl.append(`<caption>${v}</caption>`);
+             tbl.append('<thead><tr class="wdays">');
+             tbl.append('<tbody class="days">');
+             tbl.append('<tfoot>');
+           });
+           for ( let i = 1; i < 5; i++ ) {
+             $(`#ui .quarter${quarterFromMonth(i)}`).append('<td class="cell3"></td>'); 
+           }
+
+           buildCalendar(null, null, true);
+           cspan = 7;
+           break;
+         default:
+           alert(`Unknown display type: "${display}".`)
+           return
+       }
+
+       let thed = $('<thead>');
+       let row1 = thed.append('<tr class="row1">');
+       row1.append('<th><input name="year" type="number" min="1970" max="2035" class="year year_field"></th>');
+       row1.append('<th class="middle"><select name="month" class="month" class="month_field"></select></th>');
+       row1.append('<th><input name="day" type="number" min="1" max="31" class="day day_field"></th>');
+
+       thed.append('<tr class="row2"><th class="prev"> << </th><th class="middle"><label>First: <select name="first_item" class="first"></select></label></th><th class="next"> >> </th></tr>');
+
+       if ( ['week', 'work', 'month', 'quarter'].includes(display) ) {
+         thed.append(`<tr class="row3 ${( display == 'quarter' ) ? 'month' : 'wdays'}">`);
+       }
+       $('#ui').prepend(thed);
+
+       Object.entries(options[display].firsts).forEach(function ([key, val]) {
+         $('#ui').find('.first').append(`<option value="${val}">${val}</option>`);
+       });
+
+       if ( ['week', 'work', 'month'].includes(display) ) {
+         updateWDays($('#ui').find('.wdays'));
+       }
+       $('#ui').prepend(`<caption>${capitalize(display)}</caption>`);
+       $('#ui').append('<tfoot><tr><td class="prev"> << </td><td class="middle">&nbsp;</td><td class="next"> >> </td></tr></tfoot>');
+       $('#ui').find('.middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
+     }
+
+     function load() {
+       Intl.supportedValuesOf('calendar').forEach(function (e) {
+         let sel = (e == 'gregory') ? ' selected="selected"' : ' ';
+         $('#kind').append(`<option value="${e}"${sel}>${capitalize(e)}</option>`);
+       });
+       Intl.supportedValuesOf('timeZone').forEach(function (e) {
+         let sel = (e == 'America/Los_Angeles') ? ' selected="selected"' : '';
+         $('#zone').append(`<option value="${e}"${sel}>${e}</option>`);
+       });
+
+       storage_items.forEach(function (e) {
+         let db = ( ! localStorage.getItem(e) || localStorage.getItem(e) === 'undefined' ) ? populateStorage : loadStorage;
+         db(e);
+       });
+
+       Object.entries(options).forEach(function ([key, val]) {
+         $('#display').append(`<option value="${key}">${val.display}</option>`);
+       });
+
+       $('#display,#kind,#zone').children('option').each(function (i, v) {
+         $(v).prop('selected', ( $(v).val() != localStorage.getItem($(v).parent('select').attr('id')) ) ? null : 'selected');
+       });
+
+       //loadUI('hour');
+       //loadUI('day');
+       //loadUI('week');
+       //loadUI('work');
+       //loadUI('month');
+       loadUI('quarter');
+       //loadUI('year');
+       $('#month').empty();
+       months.forEach(function (v, i) {
+         let sel = ( i == now.getMonth() ) ? ' selected="selected"' : '';
+         $('select.month').append(`<option value="${i}"${sel}>${capitalize(v)}</option>`);
+       });
+
+       console.log(`Loaded: ${now}.`);
+     }
+     $(document).ready(load);
+     setInterval(updateDateTime, 100);
+   </script>
+ </html>
