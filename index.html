@@ -222,16 +222,17 @@
         }
      }
 
-     function buildCalendar(year, month, abbrev) {
+     function buildCalendar(parent, year, month, abbrev) {
+       parent ??= $('#ui .container');
        year ??= now.getFullYear();
        month ??= now.getMonth();
-       updateWDays($('#ui .container').find('.wdays'), abbrev);
+       updateWDays(parent.find('.wdays'), abbrev);
        let rowi = 1;
-       let row = $('#ui .container').append(`<tr class="row${rowi}">`)
+       let row = parent.append(`<tr class="row${rowi}">`)
        loopy(row, 1, 32, function (i) {
          row.append(`<td class="cell${i} day ${(i == now.getDate()) ? ' today' : '' }" data-year="${year}" data-month="${month}" data-date="${i}">${fmt(i)}</td>`);
          if ( i % 7 == 0 ) {
-           $('#ui .container').append(`<tr class="row${rowi++}">`);
+           parent.append(`<tr class="row${rowi++}">`);
          }
        });
      }
@@ -263,36 +264,35 @@
            cspan = 5;
            break;
          case 'quarter':
-           row = $('<tr class="months row1"></tr>')
+           row = $('<tr class="months row1"><td class="cell0"></td></tr>');
            months.filter((e, i) => quarterFromMonth(i) === quarterFromMonth(now.getMonth())).forEach(function (v, i) {
-             cell = row.append(`<td class="cell${i+1}">`); 
+             cell = row.append(`<td class="cell${i++}">`); 
              tbl  = cell.append('<table cellpadding="0" cellspacing="0" border>');
              tbl.append(`<caption>${v}</caption>`);
              tbl.append('<thead><tr class="wdays">');
              tbl.append('<tbody class="days">');
              tbl.append('<tfoot>');
            });
-           $('#ui .container').append(row)
+           row.append(`<td class="cell${months.length}">`);
+           $('#ui .container').append(row);
 
-           buildCalendar();
-           cspan = 5;
+           buildCalendar($('#ui .days'));
+           cspan = 6;
            break;
          case 'year':
-           loopy($('#ui .container'), 1, 5, (i) => `<tr class="quarter${quarterFromMonth(i)}"><td class="cell1"></td></tr>`);
+           loopy($('#ui .container'), 1, 5, (i) => `<tr class="row${i} quarter${i}"><td class="cell1"></td></tr>`);
+           let j
            months.forEach(function (v, i) {
-             cell = $(`#ui .quarter${quarterFromMonth(i)}`).append('<td class="cell2">');
-             tbl  = cell.append('<table cellpadding="0" cellspacing="0" border>');
-             tbl.append(`<caption>${v}</caption>`);
-             tbl.append('<thead><tr class="wdays">');
-             tbl.append('<tbody class="days">');
-             tbl.append('<tfoot>');
+             j = $(`#ui .quarter${quarterFromMonth(i)}`).find('td').length + 1;
+             $(`#ui .quarter${quarterFromMonth(i)}`).append(`<td class="cell${j}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="wdays"></tr></thead><tbody class="days"></tbody><tfoot></tfoot></table></td>`)
            });
            for ( let i = 1; i < 5; i++ ) {
-             $(`#ui .quarter${quarterFromMonth(i)}`).append('<td class="cell3"></td>'); 
+             j = $(`#ui .quarter${i}`).find('td').length + 1;
+             $(`#ui .quarter${i}`).append(`<td class="cell${j}">`); 
            }
 
-           buildCalendar(null, null, true);
-           cspan = 7;
+           buildCalendar($('#ui .days'), null, null, true);
+           cspan = 3;
            break;
          default:
            alert(`Unknown display type: "${display}".`)
@@ -352,8 +352,8 @@
        //loadUI('week');
        //loadUI('work');
        //loadUI('month');
-       loadUI('quarter');
-       //loadUI('year');
+       //loadUI('quarter');
+       loadUI('year');
        $('#month').empty();
        months.forEach(function (v, i) {
          let sel = ( i == now.getMonth() ) ? ' selected="selected"' : '';
