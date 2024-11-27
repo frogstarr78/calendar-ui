@@ -153,7 +153,49 @@
      </div>
   </body>
   <script async>
-    $(document).ready(load);
-    setInterval(updateDateTime, 100);
+    $(document).ready(ui.load);
+    setInterval(ui.updateDateTime, 100);
+
+    ui.storage_items.forEach(function (v) {
+      $(`#${v}`).on('blur', function () {
+        db.populateStorage($(this).attr('id'));
+      });
+    })
+
+    $('#prev').on('click', function() {
+      switch($('#display').val()) {
+        case 'month':
+          let curr_month = new Date(Date.parse($('#date').val()));
+          let prev_month = new Date(curr_month.getFullYear(), curr_month.getMonth()-1, 1);
+          $('#container').empty();
+          console.log($('#display').children('option:selected').val());
+          console.log(`prev ${prev_month}`);
+          $('#ui').find('.wdays').remove();
+          $('#date').val(prev_month.toISOString().split('T')[0]);
+          localStorage.setItem('date', prev_month.toISOString().split('T')[0]);
+          loadUI($('#display').children('option:selected').val(), prev_month);
+          break;
+        default:
+          console.log('Unknown');
+      }
+    });
+
+    $('#next').on('click', function() {
+      switch($('#display').val()) {
+        case 'month':
+          let curr_month = new Date(Date.parse($('#date').val()));
+          let next_month = new Date(curr_month.getFullYear(), curr_month.getMonth()+1, 1);
+          $('#container').empty();
+          console.log($('#display').children('option:selected').val());
+          console.log(`next ${next_month}`);
+          $('#ui').find('.wdays').remove();
+          $('#date').val(next_month.toISOString().split('T')[0]);
+          localStorage.setItem('date', next_month.toISOString().split('T')[0]);
+          loadUI($('#display').children('option:selected').val(), next_month);
+          break;
+        default:
+          console.log('Unknown');
+      }
+    });
   </script>
 </html>
