@@ -9,6 +9,12 @@ const util = {
     }
     return true;
   },
+  assertBounds: function(v, min, max) {
+    if ( v < min || v > max ) {
+      throw new Error(msg);
+    }
+    return true;
+  },
   range: function(start, end, value) {
     try{ 
       assertInstance(start, Number)
@@ -86,7 +92,11 @@ const calendar = {
   },
 
   month: function*(year, month, date=1) {
-    for (let i = date; i <= calendar.getDaysInMonth(year, month); i++) {
+    util.assertInstance(year, Number);
+    util.assertInstance(month, Number);
+    util.assertInstance(date, Number);
+
+    for (let i = date%31; i <= calendar.getDaysInMonth(year, month%12); i++) {
       yield new Date(year, month, i);
     }
   },
@@ -95,19 +105,18 @@ const calendar = {
     util.assertInstance(month, [Number, Date]);
 
     let m = parseInt( month instanceof Date ? month.getMonth() : month ) % 12;
-    return Math.ceil((month + 1)/ 3);
+    return Math.ceil((m + 1)/ 3);
   },
 
   quarter: function*(num, year) {
-    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num).map((m) => calendar.MONTH_NAMES.indexOf(m));
+    util.assertInstance(num, Number);
+    util.assertBounds(num, 1, 4);
+    util.assertInstance(year, Number);
+
+    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num);
     for ( let i = 0; i < months.length; i++ ) {
-      for( const day of calendar.month(year, months[i]) ) {
-        yield day
-      }
+      yield new Date(year, calendar.MONTH_NAMES.indexOf(months[i]), 1);
     }
-    //yield calendar.month(year, first);
-    //yield calendar.month(year, mid);
-    //yield calendar.month(year, last);
   },
 
   compDates: function(l, r) {
@@ -284,7 +293,7 @@ const ui = {
   },
 
   buildMonth: function(parent, date, abbrev) {
-    ui.updateWeekDays(parent.find('.wdays'), abbrev);
+    ui.updateWeekDays(parent.find('.weekdays'), abbrev);
     let rowi = 1, dow = 0, i = 0;
     let row = parent.append(`<tr class="row${rowi}" data-week="${rowi}">`)
 
@@ -353,16 +362,17 @@ const ui = {
         cspan = 5;
         break;
       case 'quarter':
-        row = $('<tr class="months row1"><td class="cell0"></td></tr>');
+        row = $('<tr class="months row1"><td class="cell0">');
         $('#mn_ctrl,#hr_ctrl').hide();
         calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) === calendar.quarterNumber(when.getMonth())).forEach(function (v, i) {
-          console.log(`v ${v} i ${i}`);
-          row.append(`<td class="cell${i+=1}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="wdays"><tbody class="days"><tfoot>`);
+          row.append(`<td class="cell${i+=1}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="weekdays"><tbody class="months months${calendar.MONTH_NAMES.indexOf(v)}"><tfoot>`);
         });
         row.append(`<td class="cell${calendar.MONTH_NAMES.length}">`);
         $('#ui .container').append(row);
 
-        ui.buildMonth($('#ui .days'), when);
+        for ( const month of calendar.quarter(calendar.quarterNumber(when), when.getFullYear())) {
+          ui.buildMonth($(`#ui .months${month.getMonth()}`), month);
+        }
         cspan = 6;
         break;
       case 'year':
@@ -371,7 +381,7 @@ const ui = {
         let j
         calendar.MONTH_NAMES.forEach(function (v, i) {
           j = $(`#ui .quarter${calendar.quarterNumber(i)}`).find('td').length + 1;
-          $(`#ui .quarter${calendar.quarterNumber(i)}`).append(`<td class="cell${j}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="wdays"></tr></thead><tbody class="days"></tbody><tfoot></tfoot></table></td>`)
+          $(`#ui .quarter${calendar.quarterNumber(i)}`).append(`<td class="cell${j}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="weekdays"></tr></thead><tbody class="days"></tbody><tfoot></tfoot></table></td>`)
         });
         for ( let i = 1; i < 5; i++ ) {
           j = $(`#ui .quarter${i}`).find('td').length + 1;
@@ -387,11 +397,11 @@ const ui = {
     }
 
     if ( ['week', 'work', 'month', 'quarter'].includes(display) ) {
-      $('#ui thead').append(`<tr class="row3 ${( display == 'quarter' ) ? 'month' : 'wdays'}">`);
+      $('#ui thead').append(`<tr class="row3 ${( display == 'quarter' ) ? 'month' : 'weekdays'}">`);
     }
 
     if ( ['week', 'work', 'month'].includes(display) ) {
-      ui.updateWeekDays($('#ui').find('.wdays'));
+      ui.updateWeekDays($('#ui').find('.weekdays'));
     }
     $('#ui > caption').text(util.capitalize(display));
     $('#ui .middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
