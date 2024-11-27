@@ -3,7 +3,7 @@ var now        = new Date();
 const util = {
   capitalize: (v) => v[0].toUpperCase() + v.slice(1),
   fmt: (v) => ( ( parseInt(v) < 10 ) ? `0${v}` : v ),
-  assertInstance: function(o, typeOrTypes, msg=`Object ${o} is not type ${typeOrTypes}.`) {
+  assertInstance: function(o, typeOrTypes, msg=`Object ${o} is not type ${typeOrTypes}. It is type ${typeof typeOrTypes} instead.`) {
     if ( (Array.isArray(typeOrTypes) ? typeOrTypes : [typeOrTypes]).some((type) => ( o === undefined || ! o instanceof type )) ){
       throw new Error(msg);
     }
@@ -99,7 +99,7 @@ const calendar = {
   },
 
   quarter: function*(num, year) {
-    let [first, mid, last] = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == 2).map((m) => calendar.MONTH_NAMES.indexOf(m));
+    let [first, mid, last] = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num).map((m) => calendar.MONTH_NAMES.indexOf(m));
     yield calendar.month(year, first);
     yield calendar.month(year, mid);
     yield calendar.month(year, last);
