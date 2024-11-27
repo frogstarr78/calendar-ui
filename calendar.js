@@ -99,10 +99,15 @@ const calendar = {
   },
 
   quarter: function*(num, year) {
-    let [first, mid, last] = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num).map((m) => calendar.MONTH_NAMES.indexOf(m));
-    yield calendar.month(year, first);
-    yield calendar.month(year, mid);
-    yield calendar.month(year, last);
+    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num).map((m) => calendar.MONTH_NAMES.indexOf(m));
+    for ( let i = 0; i < months.length; i++ ) {
+      for( const day of calendar.month(year, months[i]) ) {
+        yield day
+      }
+    }
+    //yield calendar.month(year, first);
+    //yield calendar.month(year, mid);
+    //yield calendar.month(year, last);
   },
 
   compDates: function(l, r) {
@@ -350,18 +355,14 @@ const ui = {
       case 'quarter':
         row = $('<tr class="months row1"><td class="cell0"></td></tr>');
         $('#mn_ctrl,#hr_ctrl').hide();
-//        calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) === calendar.quarterNumber(when.getMonth())).forEach(function (v, i) {
-//          cell = row.append(`<td class="cell${i++}">`); 
-//          tbl  = cell.append('<table cellpadding="0" cellspacing="0" border>');
-//          tbl.append(`<caption>${v}</caption>`);
-//          tbl.append('<thead><tr class="wdays">');
-//          tbl.append('<tbody class="days">');
-//          tbl.append('<tfoot>');
-//        });
-//        row.append(`<td class="cell${calendar.MONTH_NAMES.length}">`);
-//        $('#ui .container').append(row);
-//
-//        ui.buildMonth($('#ui .days'), when);
+        calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) === calendar.quarterNumber(when.getMonth())).forEach(function (v, i) {
+          console.log(`v ${v} i ${i}`);
+          row.append(`<td class="cell${i+=1}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="wdays"><tbody class="days"><tfoot>`);
+        });
+        row.append(`<td class="cell${calendar.MONTH_NAMES.length}">`);
+        $('#ui .container').append(row);
+
+        ui.buildMonth($('#ui .days'), when);
         cspan = 6;
         break;
       case 'year':
@@ -392,7 +393,7 @@ const ui = {
     if ( ['week', 'work', 'month'].includes(display) ) {
       ui.updateWeekDays($('#ui').find('.wdays'));
     }
-    $('#ui caption').text(util.capitalize(display));
+    $('#ui > caption').text(util.capitalize(display));
     $('#ui .middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
   },
 
