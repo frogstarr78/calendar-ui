@@ -101,7 +101,7 @@
              TimeZone: <select name="zone" id="zone"></select>
            </label>
            <span style="text-align: right;">
-             Date: <span class="date">
+             <span class="date">
                Date: <input type="date" id="date">
              </span>
 
@@ -166,14 +166,13 @@
       switch($('#display').val()) {
         case 'month':
           let curr_month = new Date(Date.parse($('#date').val()));
-          let prev_month = new Date(curr_month.getFullYear(), curr_month.getMonth()-1, 1);
+          let prev_month = calendar.prevMonth(curr_month);
           $('#container').empty();
-          console.log($('#display').children('option:selected').val());
-          console.log(`prev ${prev_month}`);
           $('#ui').find('.wdays').remove();
           $('#date').val(prev_month.toISOString().split('T')[0]);
+          $('select.month').val(prev_month.getMonth());
           localStorage.setItem('date', prev_month.toISOString().split('T')[0]);
-          loadUI($('#display').children('option:selected').val(), prev_month);
+          ui.loadUI($('#display').children('option:selected').val(), prev_month);
           break;
         default:
           console.log('Unknown');
@@ -184,14 +183,13 @@
       switch($('#display').val()) {
         case 'month':
           let curr_month = new Date(Date.parse($('#date').val()));
-          let next_month = new Date(curr_month.getFullYear(), curr_month.getMonth()+1, 1);
+          let next_month = calendar.nextMonth(curr_month);
           $('#container').empty();
-          console.log($('#display').children('option:selected').val());
-          console.log(`next ${next_month}`);
           $('#ui').find('.wdays').remove();
           $('#date').val(next_month.toISOString().split('T')[0]);
+          $('select.month').val(next_month.getMonth());
           localStorage.setItem('date', next_month.toISOString().split('T')[0]);
-          loadUI($('#display').children('option:selected').val(), next_month);
+          ui.loadUI($('#display').children('option:selected').val(), next_month);
           break;
         default:
           console.log('Unknown');
