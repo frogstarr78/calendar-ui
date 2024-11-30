@@ -340,6 +340,7 @@ const ui = {
       }
       parent.append(week);
     }
+
   },
 
   loadUI: function(display, when) {
