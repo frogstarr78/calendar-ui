@@ -1,4 +1,4 @@
-var now        = new Date();
+var now = new Date();
 
 const util = {
   capitalize: (v) => v[0].toUpperCase() + v.slice(1),
@@ -68,15 +68,15 @@ const calendar = {
         February: calendar.isLeapYear(dateOrYear) ? 29 : 28,
         1: calendar.isLeapYear(dateOrYear) ? 29 : 28,
         March: 31,
-        3: 31,
-        April: 31,
-        3: 31,
-        May: 30,  
-        4: 30,  
-        June: 31, 
-        5: 31, 
-        July: 30, 
-        6: 30, 
+        2: 31,
+        April: 30,
+        3: 30,
+        May: 31,  
+        4: 31,  
+        June: 30, 
+        5: 30, 
+        July: 31, 
+        6: 31, 
         August: 31, 
         7: 31, 
         September: 30, 
@@ -99,6 +99,22 @@ const calendar = {
     for (let i = date%31; i <= calendar.getDaysInMonth(year, month%12); i++) {
       yield new Date(year, month, i);
     }
+  },
+
+  makeMonthArray: function(year, month, date=1) {
+    let cols = 7, rows = 6, initArray = Array(rows).fill([]).map((x) => x = Array(cols).fill(0));
+    let first = new Date(year, month, date%31);
+
+    let row = 0;
+    for ( const day of calendar.month(year, month, date) ) {
+      initArray[row][day.getDay()] = day;
+      if ( day.getDay() == 6 ) { row++ }
+    }
+
+    if (!initArray[5].some((x) => x != 0)) {
+      initArray.pop();
+    }
+    return initArray;
   },
 
   quarterNumber: function(month) {
@@ -161,13 +177,17 @@ const calendar = {
   prevMonth: function(curr) {
     util.assertInstance(curr, Date);
 
-    return new Date(curr.setMonth(curr.getMonth()-1));
+    let present = util.copyDate(curr);
+    present.setMonth(curr.getMonth()-1);
+    return new Date(present.getTime());
   },
 
   nextMonth: function(curr) {
     util.assertInstance(curr, Date);
 
-    return new Date(curr.setMonth(curr.getMonth()+1));
+    let present = util.copyDate(curr);
+    present.setMonth(curr.getMonth()+1);
+    return new Date(present.getTime());
   },
 
   getDayOfYear: function(date) {
@@ -268,8 +288,8 @@ const ui = {
     $('#minute').text(util.fmt(now.getMinutes()));
     $('#second').text(util.fmt(now.getSeconds()));
     
-    //$('.time').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
-    $('body').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
+    $('.time').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
+    //$('body').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
   },
 
   updateWeekDays: function(parent, abbrev) {
@@ -294,35 +314,31 @@ const ui = {
 
   buildMonth: function(parent, date, abbrev) {
     ui.updateWeekDays(parent.find('.weekdays'), abbrev);
-    let rowi = 1, dow = 0, i = 0;
-    let row = parent.append(`<tr class="row${rowi}" data-week="${rowi}">`)
+    let week, cell, day;
+    let month = calendar.makeMonthArray(date.getFullYear(), date.getMonth(), 1);
 
-    for (let i = 0; i < new Date(date.getFullYear(), date.getMonth(), 1).getDay(); i++) {
-      row.append(`<td class="cell${i} day">&nbsp;</td>`);
-      dow++
-    }
-
-    for ( const day of calendar.month(date.getFullYear(), date.getMonth(), 1) ) {
-      let el = $(`<td class="day cell${i}">${util.fmt(day.getDate())}</td>`);
-      el.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
-      el.data('year', day.getFullYear().toString());
-      el.data('month', day.getMonth().toString());
-      el.data('week', rowi.toString());
-      el.data('day-of-year', calendar.getDayOfYear(day).toString());
-      el.data('day', day.getDay().toString());
-      el.data('date', day.getDate().toString());
-
-      if ( day.getDay() == dow ) { 
-        row.append(el);
-        dow++
+    for ( let row = 0; row < month.length; row++ ) {
+      week = $(`<tr class="row${row}" data-week="${row}">`);
+      for ( let col = 0; col < month[row].length; col++ ) {
+        cell = $(`<td class="cell${col} day"&nbsp;</td>`);
+        if ( month[row][col] == 0 ) {
+          cell.data('year', calendar.prevMonth(date).getFullYear().toString());
+          cell.data('month', calendar.prevMonth(date).getMonth().toString());
+          cell.data('week', row.toString());
+        } else {
+          day = month[row][col];
+          cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
+          cell.data('year', day.getFullYear().toString());
+          cell.data('month', day.getMonth().toString());
+          cell.data('week', row.toString());
+          cell.data('day-of-year', calendar.getDayOfYear(day).toString());
+          cell.data('day', day.getDay().toString());
+          cell.data('date', day.getDate().toString());
+          cell.text(day.getDate().toString());
+        }
+        week.append(cell);
       }
-
-      if ( day.getDay() == 0 ) {
-        rowi++
-        row = parent.append(`<tr class="row${rowi}" data-week="${rowi}">`)
-        row.append(el);
-        dow = 1;
-      }
+      parent.append(week);
     }
   },
 
@@ -444,8 +460,8 @@ const ui = {
     //ui.loadUI('day', now);
     //ui.loadUI('week', now);
     //ui.loadUI('work', now);
-    //ui.loadUI('month', now);
-    ui.loadUI('quarter', now);
+    ui.loadUI('month', now);
+    //ui.loadUI('quarter', now);
     //ui.loadUI('year', now);
     $('#month').empty();
 
