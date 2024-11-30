@@ -74,6 +74,11 @@
         border: '0px solid';
       }
 
+      .page {
+        width: 95vw;
+        height: 93vh;
+      }
+
       .dark01 { background-color: rgb(0,     0,   0); color: rgb(256, 256, 256); }
       .dark02,.dark24 { background-color: rgb(22,   22,  22); color: rgb(234, 234, 234); }
       .dark03,.dark23 { background-color: rgb(44,   44,  44); color: rgb(212, 212, 212); }
@@ -91,7 +96,7 @@
   </head>
 
    <body>
-     <div id="calendar" style="width: 99%">
+     <div id="calendar" class="page">
        <form name="calendar" action="" method="GET">
          <div style="padding: 5px;">
            <label>
@@ -114,20 +119,19 @@
          </div>
        </form> 
 
-       <table id="ui" border>
+       <table id="ui" border class="page">
          <caption>Month</caption>
          <thead>
            <tr class="row1">
-             <th class="cell1"><input name="year" type="number" min="1970" max="2035" class="year year_field"></th>
-             <th class="cell2 middle"><select name="month"                            class="month month_field"></select></th>
-             <th class="cell3"><input name="day" type="number" min="1" max="31"       class="day day_field"></th>
+             <th class="cell1">       <input name="year" type="number" min="1970" max="2035" class="year year_field"></th>
+             <th class="cell2 middle"><select name="month"                                   class="month month_field"></select></th>
+             <th class="cell3">       <input name="day" type="number" min="1" max="31"       class="day day_field"></th>
            </tr>
            <tr class="row2">
              <td></td>
              <th class="cell1 middle">
                <div style="text-align: center; display: flex; justify-content: space-evenly;">
                  <label> Display: <select name="display" id="display"></select></label>
-
                  <label id="mn_ctrl">First Minute: <select id="first_minute"></select></label>
                  <!-- ^ case hour -->
                  <label id="hr_ctrl">First Hour: <select   id="first_hour"></select></label>
@@ -168,7 +172,7 @@
           let curr_month = new Date(Date.parse($('#date').val()));
           let prev_month = calendar.prevMonth(curr_month);
           $('#container').empty();
-          $('#ui').find('.wdays').remove();
+          $('#ui').find('.weekdays').remove();
           $('#date').val(prev_month.toISOString().split('T')[0]);
           $('select.month').val(prev_month.getMonth());
           localStorage.setItem('date', prev_month.toISOString().split('T')[0]);
@@ -185,7 +189,7 @@
           let curr_month = new Date(Date.parse($('#date').val()));
           let next_month = calendar.nextMonth(curr_month);
           $('#container').empty();
-          $('#ui').find('.wdays').remove();
+          $('#ui').find('.weekdays').remove();
           $('#date').val(next_month.toISOString().split('T')[0]);
           $('select.month').val(next_month.getMonth());
           localStorage.setItem('date', next_month.toISOString().split('T')[0]);
@@ -194,6 +198,10 @@
         default:
           console.log('Unknown');
       }
+    });
+    $('#display').on('blur', function () {
+      ui.loadUI($(this).val(), now);
+      db.populateStorage('display');
     });
   </script>
 </html>
