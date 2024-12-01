@@ -1,4 +1,5 @@
-var now = new Date();
+const now = new Date();
+var when = new Date();
 
 const util = {
   capitalize: (v) => v[0].toUpperCase() + v.slice(1),
@@ -51,6 +52,7 @@ const calendar = {
   QUARTERS: [[0, 1, 2], [3, 4, 5], [6, 7, 8], ['October', 'November', 'December']],
   WEEKDAY_NAMES: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 
+  weekdayQueue: (first) => [...calendar.WEEKDAY_NAMES.slice(first, 7), ...calendar.WEEKDAY_NAMES.slice(0, first)],
   isLeapYear: function (year) {
     util.assertInstance(year, Number);
 
@@ -91,6 +93,17 @@ const calendar = {
     }
   },
 
+  week: function*(year, month, date=1) {
+    util.assertInstance(year, Number);
+    util.assertInstance(month, Number);
+    util.assertInstance(date, Number);
+
+    let firstDay = new Date(year, month%12, date%31);
+    for (let i = (date%31)-firstDay.getDay(); i < ((date%31)-firstDay.getDay())+7; i++) {
+      yield new Date(year, month, i);
+    }
+  },
+
   month: function*(year, month, date=1) {
     util.assertInstance(year, Number);
     util.assertInstance(month, Number);
@@ -117,11 +130,18 @@ const calendar = {
     return initArray;
   },
 
-  quarterNumber: function(month) {
+  getQuarterNumber: function(month) {
     util.assertInstance(month, [Number, Date]);
 
     let m = parseInt( month instanceof Date ? month.getMonth() : month ) % 12;
     return Math.ceil((m + 1)/ 3);
+  },
+
+  getWeekNumber: function(date) {
+    util.assertInstance(date, [Number, Date]);
+
+    let d = parseInt( date instanceof Date ? calendar.getDayOfYear(date) : date );
+    return Math.ceil((d-1) / 7);
   },
 
   quarter: function*(num, year) {
@@ -129,9 +149,17 @@ const calendar = {
     util.assertBounds(num, 1, 4);
     util.assertInstance(year, Number);
 
-    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) == num);
+    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.getQuarterNumber(i) == num);
     for ( let i = 0; i < months.length; i++ ) {
       yield new Date(year, calendar.MONTH_NAMES.indexOf(months[i]), 1);
+    }
+  },
+
+  year: function*(year) {
+    util.assertInstance(year, Number);
+
+    for ( let i = 0; i < 12; i++ ) {
+      yield new Date(year, i, 1);
     }
   },
 
@@ -280,24 +308,24 @@ const ui = {
   },
 
   updateDateTime: function() {
-    now = new Date();
-    $('input.year').val(parseInt(now.getFullYear()));
-    $('input.day').val(util.fmt(parseInt(now.getDate())));
+    when = new Date();
+    $('input.year').val(parseInt(when.getFullYear()));
+    $('input.day').val(util.fmt(parseInt(when.getDate())));
 
-    $('#hour').text(util.fmt(now.getHours()));
-    $('#minute').text(util.fmt(now.getMinutes()));
-    $('#second').text(util.fmt(now.getSeconds()));
+    $('#hour').text(util.fmt(when.getHours()));
+    $('#minute').text(util.fmt(when.getMinutes()));
+    $('#second').text(util.fmt(when.getSeconds()));
     
-    $('.time').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
-    //$('body').removeClass().addClass( `dark${util.fmt(now.getHours())}` );
+    $('.time').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
+    //$('body').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
   },
 
-  updateWeekDays: function(parent, abbrev) {
+  updateWeekDays: function(parent, abbrev=false) {
+    util.assertInstance(abbrev, Boolean);
+
     parent.empty();
     let val = parent.find('.first').val();
-    let first = ( val == 'week:today' ) ? now.getDay() : 0;
-    let sorted_days = [...calendar.WEEKDAY_NAMES.slice(first, 7), ...calendar.WEEKDAY_NAMES.slice(0, first)];
-    abbrev ??= false;
+    let sorted_days = calendar.weekdayQueue(val == 'week:today' ? now.getDay() : 0);
     if ( $('#display').val() == 'work' ) {
       sorted_days = sorted_days.slice(0, 5)
     }
@@ -313,99 +341,140 @@ const ui = {
   },
 
   buildMonth: function(parent, date, abbrev) {
-    ui.updateWeekDays(parent.find('.weekdays'), abbrev);
     let week, cell, day;
     let month = calendar.makeMonthArray(date.getFullYear(), date.getMonth(), 1);
 
     for ( let row = 0; row < month.length; row++ ) {
-      week = $(`<tr class="row${row}" data-week="${row}">`);
+      week = $(`<tr class="row${row}">`);
+      if ( month[row][0] != 0 ) {
+        week.attr('data-year', month[row][0].getFullYear());
+        week.attr('data-month', month[row][0].getMonth());
+        week.attr('data-week', calendar.getWeekNumber(month[row][0]));
+      }
+
       for ( let col = 0; col < month[row].length; col++ ) {
-        cell = $(`<td class="cell${col} day"&nbsp;</td>`);
+        cell = $(`<td class="cell${col} day">&nbsp;</td>`);
+        cell.attr('data-week', calendar.getWeekNumber(date));
+
         if ( month[row][col] == 0 ) {
-          cell.data('year', calendar.prevMonth(date).getFullYear().toString());
-          cell.data('month', calendar.prevMonth(date).getMonth().toString());
-          cell.data('week', row.toString());
+          cell.attr('data-year', calendar.prevMonth(date).getFullYear());
+          cell.attr('data-month', calendar.prevMonth(date).getMonth().toString());
         } else {
           day = month[row][col];
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
-          cell.data('year', day.getFullYear().toString());
-          cell.data('month', day.getMonth().toString());
-          cell.data('week', row.toString());
-          cell.data('day-of-year', calendar.getDayOfYear(day).toString());
-          cell.data('day', day.getDay().toString());
-          cell.data('date', day.getDate().toString());
+          cell.attr('data-year', day.getFullYear());
+          cell.attr('data-month', day.getMonth());
+          cell.attr('data-day-of-year', calendar.getDayOfYear(day));
+          cell.attr('data-day', day.getDay());
+          cell.attr('data-date', day.getDate());
           cell.text(day.getDate().toString());
         }
         week.append(cell);
       }
       parent.append(week);
     }
-
   },
 
-  loadUI: function(display, when) {
+  build: function(display, when) {
     $('#ui .container').empty();
     let rowi = 1, row, cell, tbl, cspan = null;
     switch (display) {
       case 'hour':
-        loopy($('#ui .container'), 0, 60, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour"><span class="time">${util.fmt(when.getHours())}:${util.fmt(i)}</span></td></tr>`);
+        ui.loopy($('#ui .container'), 0, 60, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour"><span class="time">${util.fmt(when.getHours())}:${util.fmt(i)}</span></td></tr>`);
         $('#hr_ctrl,#da_ctrl,#mo_ctrl').hide();
         break;
       case 'day':
-        loopy($('#ui .container'), 0, 24, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour">${util.fmt(i)}</td></tr>`);
+        ui.loopy($('#ui .container'), 0, 24, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour">${util.fmt(i)}</td></tr>`);
         $('#mn_ctrl,#da_ctrl,#mo_ctrl').hide();
         break;
       case 'week':
+        $('#ui .weekdays').remove();
+        row = $(`<tr class="row3 weekdays">`);
+        ui.updateWeekDays(row, false);
+        $('#ui thead').append(row);
+
         row = $('<tr class="days row1">');
-        loopy(row, 1, 8, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
+        //ui.loopy(row, 1, 8, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
+        for ( const day of calendar.week(when.getFullYear(), when.getMonth(), when.getDate()) ){
+          let cell = $(`<td class="cell${day.getDay()} day">${util.fmt(day.getDate())}</td>`);
+          cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
+          cell.attr('data-year', day.getFullYear());
+          cell.attr('data-month', day.getMonth());
+          cell.attr('data-day', day.getDay());
+          cell.attr('data-date', day.getDate());
+          cell.attr('data-day-of-year', calendar.getDayOfYear(day));
+          cell.attr('data-week', calendar.getWeekNumber(day));
+          row.append(cell)
+        }
         $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
         $('#ui .container').append(row);
         cspan = 5;
         break;
       case 'work':
+        $('#controls').empty();
         row = $('<tr class="days row1">');
-        loopy(row, 1, 6, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
+        ui.loopy(row, 1, 6, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
         $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
         $('#ui .container').append(row);
         cspan = 3;
         break;
       case 'month':
+        $('#controls').empty();
+        $('#controls').append('<th class="cell1"><input         name="year"  class="year year_field"   type="number" min="1970" max="2035"></th>');
+        $('#controls').append('<th class="cell2 middle"><select name="month" class="month month_field" ></select></th>');
+        $('#controls').append('<th class="cell3"><input         name="day"   class="day day_field"     type="number" min="1" max="31"></th>');
         calendar.MONTH_NAMES.forEach(function (v, i) {
           let sel = ( i == when.getMonth() ) ? ' selected="selected"' : '';
           $('select.month').append(`<option value="${i}"${sel}>${util.capitalize(v)}</option>`);
         });
         ui.buildMonth($('#ui .container'), when);
+        $('#ui .weekdays').remove();
+        row = $(`<tr class="row3 weekdays">`);
+        ui.updateWeekDays(row, false);
+        $('#ui thead').append(row);
         $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
         cspan = 5;
         break;
       case 'quarter':
-        row = $('<tr class="months row1"><td class="cell0">');
+        row = $('<tr class="months row0" colspan="6"><td class="cell0">');
         $('#mn_ctrl,#hr_ctrl').hide();
-        calendar.MONTH_NAMES.filter((e, i) => calendar.quarterNumber(i) === calendar.quarterNumber(when.getMonth())).forEach(function (v, i) {
-          row.append(`<td class="cell${i+=1}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="weekdays"><tbody class="months months${calendar.MONTH_NAMES.indexOf(v)}"><tfoot>`);
+        $('#ui .weekdays').remove();
+        $('#controls').empty();
+        $('#controls').append('<th class="cell2 middle"><select name="quarter" class="quarter quarter_field"><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select></th>');
+        $('#controls select').val(calendar.getQuarterNumber(when.getMonth()));
+        calendar.MONTH_NAMES.filter((e, i) => calendar.getQuarterNumber(i) === calendar.getQuarterNumber(when.getMonth())).forEach(function (v, i) {
+          row.append(`<td class="cell${i+1}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="weekdays"><tbody class="months months${calendar.MONTH_NAMES.indexOf(v)}"><tfoot>`);
         });
-        row.append(`<td class="cell${calendar.MONTH_NAMES.length}">`);
+        row.append(`<td class="cell4">`);
         $('#ui .container').append(row);
 
-        for ( const month of calendar.quarter(calendar.quarterNumber(when), when.getFullYear())) {
+        for ( const month of calendar.quarter(calendar.getQuarterNumber(when), when.getFullYear())) {
           ui.buildMonth($(`#ui .months${month.getMonth()}`), month);
         }
+        ui.updateWeekDays($('#ui .weekdays'), false);
         cspan = 6;
         break;
       case 'year':
-        loopy($('#ui .container'), 1, 5, (i) => `<tr class="row${i} quarter${i}"><td class="cell1"></td></tr>`);
+        $('#controls').empty();
+        $('#controls').append('<th class="cell0" colspan="5"><input         name="year"  class="year year_field"   type="number" min="1970" max="2035"></th>');
+
+        ui.loopy($('#ui .container'), 1, 5, (i) => `<tr class="row${i} quarter${i}"><td class="cell1"></td></tr>`);
         $('#mn_ctrl,#hr_ctrl').hide();
+
         let j
         calendar.MONTH_NAMES.forEach(function (v, i) {
-          j = $(`#ui .quarter${calendar.quarterNumber(i)}`).find('td').length + 1;
-          $(`#ui .quarter${calendar.quarterNumber(i)}`).append(`<td class="cell${j}"><table cellpadding="0" cellspacing="0" border><caption>${v}</caption><thead><tr class="weekdays"></tr></thead><tbody class="days"></tbody><tfoot></tfoot></table></td>`)
+          j = $(`#ui .quarter${calendar.getQuarterNumber(i)}`).find('td').length + 1;
+          $(`#ui .quarter${calendar.getQuarterNumber(i)}`).append(`<td class="cell${j}"><table cellpadding="0" cellspacing="0" border><caption><b>${v}</b></caption><thead><tr class="weekdays"></tr></thead><tbody class="month${i}"></tbody><tfoot></tfoot></table></td>`)
         });
         for ( let i = 1; i < 5; i++ ) {
           j = $(`#ui .quarter${i}`).find('td').length + 1;
           $(`#ui .quarter${i}`).append(`<td class="cell${j}">`); 
         }
 
-        ui.buildMonth($('#ui .days'), when, true);
+        for ( const month of calendar.year(when.getFullYear())) {
+          ui.buildMonth($(`#ui .month${month.getMonth()}`), month);
+        }
+        ui.updateWeekDays($('#ui .weekdays'), true);
         cspan = 3;
         break;
       default:
@@ -413,13 +482,6 @@ const ui = {
         return
     }
 
-    if ( ['week', 'work', 'month', 'quarter'].includes(display) ) {
-      $('#ui thead').append(`<tr class="row3 ${( display == 'quarter' ) ? 'month' : 'weekdays'}">`);
-    }
-
-    if ( ['week', 'work', 'month'].includes(display) ) {
-      ui.updateWeekDays($('#ui').find('.weekdays'));
-    }
     $('#ui > caption').text(util.capitalize(display));
     $('#ui .middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
   },
@@ -457,14 +519,7 @@ const ui = {
       });
     });
 
-    //ui.loadUI('hour', now);
-    //ui.loadUI('day', now);
-    //ui.loadUI('week', now);
-    //ui.loadUI('work', now);
-    ui.loadUI('month', now);
-    //ui.loadUI('quarter', now);
-    //ui.loadUI('year', now);
-    $('#month').empty();
+    ui.build(localStorage.getItem('display'), when);
 
     console.log(`Loaded: ${now}.`);
   }
