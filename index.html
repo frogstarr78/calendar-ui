@@ -79,6 +79,10 @@
         height: 93vh;
       }
 
+      .cell0, .cell1, .cell2, .cell3, .cell4, .cell5 {
+        vertical-align: top;
+      }
+
       .dark01 { background-color: rgb(0,     0,   0); color: rgb(256, 256, 256); }
       .dark02,.dark24 { background-color: rgb(22,   22,  22); color: rgb(234, 234, 234); }
       .dark03,.dark23 { background-color: rgb(44,   44,  44); color: rgb(212, 212, 212); }
@@ -122,7 +126,7 @@
        <table id="ui" border class="page">
          <caption>Month</caption>
          <thead>
-           <tr class="row1">
+           <tr class="row1" id="controls">
              <th class="cell1">       <input name="year" type="number" min="1970" max="2035" class="year year_field"></th>
              <th class="cell2 middle"><select name="month"                                   class="month month_field"></select></th>
              <th class="cell3">       <input name="day" type="number" min="1" max="31"       class="day day_field"></th>
@@ -176,7 +180,7 @@
           $('#date').val(prev_month.toISOString().split('T')[0]);
           $('select.month').val(prev_month.getMonth());
           localStorage.setItem('date', prev_month.toISOString().split('T')[0]);
-          ui.loadUI($('#display').children('option:selected').val(), prev_month);
+          ui.build($('#display').children('option:selected').val(), prev_month);
           break;
         default:
           console.log('Unknown');
@@ -193,15 +197,22 @@
           $('#date').val(next_month.toISOString().split('T')[0]);
           $('select.month').val(next_month.getMonth());
           localStorage.setItem('date', next_month.toISOString().split('T')[0]);
-          ui.loadUI($('#display').children('option:selected').val(), next_month);
+          ui.build($('#display').children('option:selected').val(), next_month);
           break;
         default:
           console.log('Unknown');
       }
     });
+    $('#display').on('focus', function () {
+      $(this).data('initial_value', $(this).val());
+    });
     $('#display').on('blur', function () {
-      ui.loadUI($(this).val(), now);
-      db.populateStorage('display');
+      if ( $(this).data('initial_value') != $(this).val()) {
+      // Only trigger an update if the value has changed
+        ui.build($(this).val(), now);
+        db.populateStorage('display');
+        $(this).removeData('initial_value');
+      }
     });
   </script>
 </html>
