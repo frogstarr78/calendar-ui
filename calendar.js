@@ -1,5 +1,6 @@
 const now = new Date();
 var when = new Date();
+var year;
 
 const util = {
   capitalize: (v) => v[0].toUpperCase() + v.slice(1),
@@ -44,6 +45,10 @@ const util = {
 
     if ( l > r )
       return 1
+  },
+
+  equalArrays: function (l, r) {
+    return l.length === r.length && l.every((x, i) => x === r[i]);
   }
 };
 
@@ -65,8 +70,8 @@ const calendar = {
       return calendar.getDaysInMonth(dateOrYear.getFullYear(), dateOrYear.getMonth());
     } else {
       return {
-        January: 30,
-        0: 30,
+        January: 31,
+        0: 31,
         February: calendar.isLeapYear(dateOrYear) ? 29 : 28,
         1: calendar.isLeapYear(dateOrYear) ? 29 : 28,
         March: 31,
@@ -93,7 +98,9 @@ const calendar = {
     }
   },
 
-  week: function*(year, month, date=1) {
+  getDaysInYear: (year) => calendar.isLeapYear(year) ? 366 : 365,
+
+  iterWeekByDay: function*(year, month, date=1) {
     util.assertInstance(year, Number);
     util.assertInstance(month, Number);
     util.assertInstance(date, Number);
@@ -104,7 +111,7 @@ const calendar = {
     }
   },
 
-  month: function*(year, month, date=1) {
+  iterMonthByDay: function*(year, month, date=1) {
     util.assertInstance(year, Number);
     util.assertInstance(month, Number);
     util.assertInstance(date, Number);
@@ -114,12 +121,36 @@ const calendar = {
     }
   },
 
+  iterToDate: function*(year, month, date=366) { 
+    util.assertInstance(year, Number);
+    util.assertInstance(month, Number);
+    util.assertInstance(date, Number);
+
+    for ( const mon of calendar.iterYearByMonth(year) ) {
+      for ( const day of calendar.iterMonthByDay(mon.getFullYear(), mon.getMonth()) ) {
+        if ( util.equalArrays(calendar.compBy(day, new Date(year, month, date)), [0, 0, 0]) ) {
+          return day;
+        }
+        yield day
+      }
+    }
+    return 
+  },
+
+  iterYearByMonth: function*(year) {
+    util.assertInstance(year, Number);
+
+    for ( let i = 0; i < 12; i++ ) {
+      yield new Date(year, i, 1);
+    }
+  },
+
   makeMonthArray: function(year, month, date=1) {
     let cols = 7, rows = 6, initArray = Array(rows).fill([]).map((x) => x = Array(cols).fill(0));
     let first = new Date(year, month, date%31);
 
     let row = 0;
-    for ( const day of calendar.month(year, month, date) ) {
+    for ( const day of calendar.iterMonthByDay(year, month, date) ) {
       initArray[row][day.getDay()] = day;
       if ( day.getDay() == 6 ) { row++ }
     }
@@ -128,6 +159,19 @@ const calendar = {
       initArray.pop();
     }
     return initArray;
+  },
+
+  makeYearArray: function(year) {
+    let initArray = Array(calendar.getDaysInYear(year)).fill(0);
+
+    initArray[0] = new Date(year-1, 11, 31);
+    for ( let m = 0; m < 12; m++ ){
+      for ( let i = 1; i <= calendar.getDaysInMonth(year, m); i++) {
+        let when = new Date(year, m, i);
+        initArray[calendar.getDayOfYear(when)] = when;
+      }
+    }
+    return initArray
   },
 
   getQuarterNumber: function(month) {
@@ -140,11 +184,15 @@ const calendar = {
   getWeekNumber: function(date) {
     util.assertInstance(date, [Number, Date]);
 
-    let d = parseInt( date instanceof Date ? calendar.getDayOfYear(date) : date );
-    return Math.ceil((d-1) / 7);
+    if ( calendar.getDayOfYear(date) < 7 && year[1].getDay() > 0 ) {
+      return 1
+    } else {
+      return year.slice(1, calendar.getDayOfYear(date)+1).reduce((sum, d) => sum + (d.getDay() === 0 ? 1 : 0), 1);
+    }
+    //return calendar.iterToDate(date.getFullYear(), date.getMonth(), date.getDate()).reduce((acc, curr) => acc + (curr.getDay() == 0 ? 1 : 0), 1);
   },
 
-  quarter: function*(num, year) {
+  iterQuarterByMonth: function*(num, year) {
     util.assertInstance(num, Number);
     util.assertBounds(num, 1, 4);
     util.assertInstance(year, Number);
@@ -152,14 +200,6 @@ const calendar = {
     let months = calendar.MONTH_NAMES.filter((e, i) => calendar.getQuarterNumber(i) == num);
     for ( let i = 0; i < months.length; i++ ) {
       yield new Date(year, calendar.MONTH_NAMES.indexOf(months[i]), 1);
-    }
-  },
-
-  year: function*(year) {
-    util.assertInstance(year, Number);
-
-    for ( let i = 0; i < 12; i++ ) {
-      yield new Date(year, i, 1);
     }
   },
 
@@ -223,7 +263,7 @@ const calendar = {
 
     let sum = date.getDate();
     for ( let i = 0; i < date.getMonth(); i++ ) {
-      sum += calendar.getDaysInMonth(date);
+      sum += calendar.getDaysInMonth(date.getFullYear(), i);
     }
     return sum
   }
@@ -354,7 +394,6 @@ const ui = {
 
       for ( let col = 0; col < month[row].length; col++ ) {
         cell = $(`<td class="cell${col} day">&nbsp;</td>`);
-        cell.attr('data-week', calendar.getWeekNumber(date));
 
         if ( month[row][col] == 0 ) {
           cell.attr('data-year', calendar.prevMonth(date).getFullYear());
@@ -362,6 +401,8 @@ const ui = {
         } else {
           day = month[row][col];
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
+          console.log(day, calendar.getWeekNumber(day));
+          cell.attr('data-week', calendar.getWeekNumber(day));
           cell.attr('data-year', day.getFullYear());
           cell.attr('data-month', day.getMonth());
           cell.attr('data-day-of-year', calendar.getDayOfYear(day));
@@ -395,7 +436,7 @@ const ui = {
 
         row = $('<tr class="days row1">');
         //ui.loopy(row, 1, 8, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
-        for ( const day of calendar.week(when.getFullYear(), when.getMonth(), when.getDate()) ){
+        for ( const day of calendar.iterWeekByDay(when.getFullYear(), when.getMonth(), when.getDate()) ){
           let cell = $(`<td class="cell${day.getDay()} day">${util.fmt(day.getDate())}</td>`);
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
           cell.attr('data-year', day.getFullYear());
@@ -448,7 +489,7 @@ const ui = {
         row.append(`<td class="cell4">`);
         $('#ui .container').append(row);
 
-        for ( const month of calendar.quarter(calendar.getQuarterNumber(when), when.getFullYear())) {
+        for ( const month of calendar.iterQuarterByMonth(calendar.getQuarterNumber(when), when.getFullYear())) {
           ui.buildMonth($(`#ui .months${month.getMonth()}`), month);
         }
         ui.updateWeekDays($('#ui .weekdays'), false);
@@ -456,7 +497,7 @@ const ui = {
         break;
       case 'year':
         $('#controls').empty();
-        $('#controls').append('<th class="cell0" colspan="5"><input         name="year"  class="year year_field"   type="number" min="1970" max="2035"></th>');
+        $('#controls').append('<th class="cell0" colspan="5"><input name="year" class="year year_field"   type="number" min="1970" max="2035"></th>');
 
         ui.loopy($('#ui .container'), 1, 5, (i) => `<tr class="row${i} quarter${i}"><td class="cell1"></td></tr>`);
         $('#mn_ctrl,#hr_ctrl').hide();
@@ -471,7 +512,7 @@ const ui = {
           $(`#ui .quarter${i}`).append(`<td class="cell${j}">`); 
         }
 
-        for ( const month of calendar.year(when.getFullYear())) {
+        for ( const month of calendar.iterYearByMonth(when.getFullYear())) {
           ui.buildMonth($(`#ui .month${month.getMonth()}`), month);
         }
         ui.updateWeekDays($('#ui .weekdays'), true);
@@ -527,3 +568,4 @@ const ui = {
 
 calendar.WEEKDAY_NAMES.forEach((d) => ui.options.week.options[d.toLowerCase()] = d);
 calendar.MONTH_NAMES.forEach((m)   => ui.options.year.options[m.toLowerCase()] = m);
+year = calendar.makeYearArray(now.getFullYear());
