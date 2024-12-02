@@ -189,7 +189,6 @@ const calendar = {
     } else {
       return year.slice(1, calendar.getDayOfYear(date)+1).reduce((sum, d) => sum + (d.getDay() === 0 ? 1 : 0), 1);
     }
-    //return calendar.iterToDate(date.getFullYear(), date.getMonth(), date.getDate()).reduce((acc, curr) => acc + (curr.getDay() == 0 ? 1 : 0), 1);
   },
 
   iterQuarterByMonth: function*(num, year) {
@@ -266,25 +265,26 @@ const calendar = {
       sum += calendar.getDaysInMonth(date.getFullYear(), i);
     }
     return sum
+  },
+
+  dateFromString: function (str) {
+    let timestamp = Date.parse(str);
+
+    if ( Number.isNaN(timestamp) ) {
+      throw new Error(`Invalid date value ${str}.`);
+    } else {
+      return new Date(timestamp);
+    }
   }
 };
 
 const db = {
   populateStorage: function(e) {
     let el = $(`#${e}`);
-    let val = ( el.prop('tagName').toLowerCase() == 'select' ) ? el.children('option:selected').val() : el.val();
-    localStorage.setItem(e, val);
+    localStorage.setItem(e, ( el.prop('tagName').toLowerCase() == 'select' ? el.children('option:selected').val() : el.val() ));
   },
   loadStorage: function(e) {
-    let el = $(`#${e}`);
-    if ( el.prop('tagName').toLowerCase() == 'select' ) {
-      val = localStorage.getItem(e);
-      el.each(function (i, v) {
-        $(v).prop('selected', ( $(v).val() != val ) ? null : 'selected');
-      });
-    } else {
-      el.val(localStorage.getItem(e));
-    }
+    $(`#${e}`).val(localStorage.getItem(e));
   }
 };
 
@@ -349,9 +349,6 @@ const ui = {
 
   updateDateTime: function() {
     when = new Date();
-    $('input.year').val(parseInt(when.getFullYear()));
-    $('input.day').val(util.fmt(parseInt(when.getDate())));
-
     $('#hour').text(util.fmt(when.getHours()));
     $('#minute').text(util.fmt(when.getMinutes()));
     $('#second').text(util.fmt(when.getSeconds()));
@@ -370,7 +367,7 @@ const ui = {
       sorted_days = sorted_days.slice(0, 5)
     }
     sorted_days.forEach(function (v, i) {
-      parent.append(`<th id="row${i}">${( abbrev === true ) ? v.slice(0, 3) : v}</th>`);
+      parent.append(`<th class="row${i}">${( abbrev === true ) ? v.slice(0, 3) : v}</th>`);
     });
   },
 
@@ -401,7 +398,6 @@ const ui = {
         } else {
           day = month[row][col];
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
-          console.log(day, calendar.getWeekNumber(day));
           cell.attr('data-week', calendar.getWeekNumber(day));
           cell.attr('data-year', day.getFullYear());
           cell.attr('data-month', day.getMonth());
@@ -417,16 +413,20 @@ const ui = {
   },
 
   build: function(display, when) {
+    util.assertInstance(when, Date);
+
     $('#ui .container').empty();
     let rowi = 1, row, cell, tbl, cspan = null;
     switch (display) {
       case 'hour':
+        $('#ui .weekdays').remove();
         ui.loopy($('#ui .container'), 0, 60, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour"><span class="time">${util.fmt(when.getHours())}:${util.fmt(i)}</span></td></tr>`);
-        $('#hr_ctrl,#da_ctrl,#mo_ctrl').hide();
+        $('#hr,#da,#mo').hide();
         break;
       case 'day':
+        $('#ui .weekdays').remove();
         ui.loopy($('#ui .container'), 0, 24, (i) => `<tr class="row${i+1}"><td colspan="3" class="cell1 hour">${util.fmt(i)}</td></tr>`);
-        $('#mn_ctrl,#da_ctrl,#mo_ctrl').hide();
+        $('#mn,#da,#mo').hide();
         break;
       case 'week':
         $('#ui .weekdays').remove();
@@ -435,7 +435,6 @@ const ui = {
         $('#ui thead').append(row);
 
         row = $('<tr class="days row1">');
-        //ui.loopy(row, 1, 8, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
         for ( const day of calendar.iterWeekByDay(when.getFullYear(), when.getMonth(), when.getDate()) ){
           let cell = $(`<td class="cell${day.getDay()} day">${util.fmt(day.getDate())}</td>`);
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
@@ -447,7 +446,7 @@ const ui = {
           cell.attr('data-week', calendar.getWeekNumber(day));
           row.append(cell)
         }
-        $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
+        $('#mn,#hr,#mo').hide();
         $('#ui .container').append(row);
         cspan = 5;
         break;
@@ -455,30 +454,36 @@ const ui = {
         $('#controls').empty();
         row = $('<tr class="days row1">');
         ui.loopy(row, 1, 6, (i) => `<td class="cell${i} day">${util.fmt(i)}</td>`);
-        $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
+        $('#mn,#hr,#mo').hide();
         $('#ui .container').append(row);
         cspan = 3;
         break;
       case 'month':
         $('#controls').empty();
-        $('#controls').append('<th class="cell1"><input         name="year"  class="year year_field"   type="number" min="1970" max="2035"></th>');
-        $('#controls').append('<th class="cell2 middle"><select name="month" class="month month_field" ></select></th>');
-        $('#controls').append('<th class="cell3"><input         name="day"   class="day day_field"     type="number" min="1" max="31"></th>');
-        calendar.MONTH_NAMES.forEach(function (v, i) {
-          let sel = ( i == when.getMonth() ) ? ' selected="selected"' : '';
-          $('select.month').append(`<option value="${i}"${sel}>${util.capitalize(v)}</option>`);
-        });
+        var cell_html = $('' +
+          '<th class="cell0" colspan="3">&nbsp;</th>' + 
+          '<th class="cell1">' +
+          '  <select name="month" id="month" class="month_field">' + 
+          '  </select>' +
+          `  <input name="year" id="year"    class="year_field"  type="number" min="1970" max="2035" value="${when.getFullYear()}" />` +
+          '</th>' +
+          '<th class="cell2" colspan="3">&nbsp;</th>')
+        $('#controls').append(cell_html);
+        calendar.MONTH_NAMES.forEach((v, i) => $('#month').append(`<option value="${i}" ${( when.getMonth() === i ? 'selected="selected"' : '')}>${v}</option>`));
+        //$('#month').val(`${when.getFullYear()}-${when.getMonth()+1}`);
         ui.buildMonth($('#ui .container'), when);
         $('#ui .weekdays').remove();
         row = $(`<tr class="row3 weekdays">`);
         ui.updateWeekDays(row, false);
         $('#ui thead').append(row);
-        $('#mn_ctrl,#hr_ctrl,#mo_ctrl').hide();
+        $('#mn,#hr,#mo').hide();
+        calendar.WEEKDAY_NAMES.forEach((d) => ui.options.week.options[d.toLowerCase()] = d);
+        calendar.MONTH_NAMES.forEach((m)   => ui.options.year.options[m.toLowerCase()] = m);
         cspan = 5;
         break;
       case 'quarter':
         row = $('<tr class="months row0" colspan="6"><td class="cell0">');
-        $('#mn_ctrl,#hr_ctrl').hide();
+        $('#mn,#hr').hide();
         $('#ui .weekdays').remove();
         $('#controls').empty();
         $('#controls').append('<th class="cell2 middle"><select name="quarter" class="quarter quarter_field"><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select></th>');
@@ -497,10 +502,10 @@ const ui = {
         break;
       case 'year':
         $('#controls').empty();
-        $('#controls').append('<th class="cell0" colspan="5"><input name="year" class="year year_field"   type="number" min="1970" max="2035"></th>');
+        $('#controls').append(`<th class="cell0" colspan="5"><input name="year" id="year" type="number" min="1970" max="2035" value="${when.getFullYear()}"></th>`);
 
         ui.loopy($('#ui .container'), 1, 5, (i) => `<tr class="row${i} quarter${i}"><td class="cell1"></td></tr>`);
-        $('#mn_ctrl,#hr_ctrl').hide();
+        $('#mn,#hr').hide();
 
         let j
         calendar.MONTH_NAMES.forEach(function (v, i) {
@@ -527,7 +532,7 @@ const ui = {
     $('#ui .middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
   },
 
-  load: function() {
+  start: function() {
     Intl.supportedValuesOf('calendar').forEach(function (e) {
       let sel = (e == 'gregory') ? ' selected="selected"' : ' ';
       $('#kind').append(`<option value="${e}"${sel}>${util.capitalize(e)}</option>`);
@@ -554,18 +559,12 @@ const ui = {
       $('#display').append(`<option value="${key}">${val.display}</option>`);
     });
 
-    ui.storage_items.map(function (id) {
-      $(`#${id}`).children('option').each(function (i, v) {
-        $(v).prop('selected', ( $(v).val() != localStorage.getItem($(v).parent('select').attr('id')) ) ? null : 'selected');
-      });
-    });
-
+    ui.storage_items.map(db.loadStorage);
     ui.build(localStorage.getItem('display'), when);
+    setInterval(ui.updateDateTime, 100);
 
     console.log(`Loaded: ${now}.`);
   }
 };
 
-calendar.WEEKDAY_NAMES.forEach((d) => ui.options.week.options[d.toLowerCase()] = d);
-calendar.MONTH_NAMES.forEach((m)   => ui.options.year.options[m.toLowerCase()] = m);
 year = calendar.makeYearArray(now.getFullYear());

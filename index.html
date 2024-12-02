@@ -66,11 +66,11 @@
         cursor: pointer;
       }
 
-      input.year:hover, select.month:hover, input.day:hover {
+      input.year:hover, select.month_field:hover, input.day:hover {
         border: '1px solid';
       }
 
-      input.year, select.month, input.day {
+      input.year, select.month_field, input.day {
         border: '0px solid';
       }
 
@@ -81,6 +81,7 @@
 
       .cell0, .cell1, .cell2, .cell3, .cell4, .cell5 {
         vertical-align: top;
+        text-align: middle;
       }
 
       .dark01 { background-color: rgb(0,     0,   0); color: rgb(256, 256, 256); }
@@ -127,22 +128,22 @@
          <caption>Month</caption>
          <thead>
            <tr class="row1" id="controls">
-             <th class="cell1">       <input name="year" type="number" min="1970" max="2035" class="year year_field"></th>
-             <th class="cell2 middle"><select name="month"                                   class="month month_field"></select></th>
-             <th class="cell3">       <input name="day" type="number" min="1" max="31"       class="day day_field"></th>
+             <th class="cell0" colspan="3">&nbsp;</th>
+             <th class="cell1"><input name="month" id="month" class="month_field" type="month"/></th>
+             <th class="cell2" colspan="3">&nbsp;</th>
            </tr>
            <tr class="row2">
              <td></td>
              <th class="cell1 middle">
                <div style="text-align: center; display: flex; justify-content: space-evenly;">
                  <label> Display: <select name="display" id="display"></select></label>
-                 <label id="mn_ctrl">First Minute: <select id="first_minute"></select></label>
+                 <label id="mn">First Minute: <select id="first_minute"></select></label>
                  <!-- ^ case hour -->
-                 <label id="hr_ctrl">First Hour: <select   id="first_hour"></select></label>
+                 <label id="hr">First Hour: <select   id="first_hour"></select></label>
                  <!-- ^ case day -->
-                 <label id="da_ctrl">First Day: <select    id="first_day"></select></label>
+                 <label id="da">First Day: <select    id="first_day"></select></label>
                  <!-- ^ case 'week' || 'work' || 'month' -->
-                 <label id="mo_ctrl">First Month: <select  id="first_month"></select></label>
+                 <label id="mo">First Month: <select  id="first_month"></select></label>
                  <!-- ^ case 'quarter' || 'year' -->
                </div>
              </th>
@@ -161,9 +162,6 @@
      </div>
   </body>
   <script async>
-    $(document).ready(ui.load);
-    setInterval(ui.updateDateTime, 100);
-
     ui.storage_items.forEach(function (v) {
       $(`#${v}`).on('blur', function () {
         db.populateStorage($(this).attr('id'));
@@ -176,11 +174,9 @@
           let curr_month = new Date(Date.parse($('#date').val()));
           let prev_month = calendar.prevMonth(curr_month);
           $('#container').empty();
-          $('#ui').find('.weekdays').remove();
           $('#date').val(prev_month.toISOString().split('T')[0]);
-          $('select.month').val(prev_month.getMonth());
+          $('#month').val(`${prev_month.getFullYear()}-${util.fmt(prev_month.getMonth()+1)}`);
           localStorage.setItem('date', prev_month.toISOString().split('T')[0]);
-          ui.build($('#display').children('option:selected').val(), prev_month);
           break;
         default:
           console.log('Unknown');
@@ -193,26 +189,67 @@
           let curr_month = new Date(Date.parse($('#date').val()));
           let next_month = calendar.nextMonth(curr_month);
           $('#container').empty();
-          $('#ui').find('.weekdays').remove();
           $('#date').val(next_month.toISOString().split('T')[0]);
-          $('select.month').val(next_month.getMonth());
+          $('#month').val(`${next_month.getFullYear()}-${util.fmt(next_month.getMonth()+1)}`);
           localStorage.setItem('date', next_month.toISOString().split('T')[0]);
-          ui.build($('#display').children('option:selected').val(), next_month);
           break;
         default:
           console.log('Unknown');
       }
     });
-    $('#display').on('focus', function () {
-      $(this).data('initial_value', $(this).val());
+    $('#date').on('focus', function () {
+      $(this).data('initial-value', $(this).val());
+    });
+    $('#month').on('focus', function () {
+      $(this).data('initial-value', $(this).val());
+    });
+    $('#year').on('focus', function () {
+      $(this).data('initial-value', $(this).val());
     });
     $('#display').on('blur', function () {
-      if ( $(this).data('initial_value') != $(this).val()) {
+      if ( $(this).data('initial-value') != $(this).val()) {
       // Only trigger an update if the value has changed
         ui.build($(this).val(), now);
         db.populateStorage('display');
-        $(this).removeData('initial_value');
       }
+      $(this).removeData('initial-value');
     });
+
+    $('#month').on('blur', function() {
+      console.log($(this).attr('id'), $(this).val(), $('#display').val())
+      if ( $(this).data('initial-value') !== $(this).val() ) {
+        let dateParts = $(this).val().split('-');
+        localStorage.setItem($(this).attr('id'), $(this).val());
+        ui.build($('#display').val(), new Date(dateParts[0], dateParts[1], 1));
+      }
+      $(this).removeData('initial-value');
+    });
+    $('#year').on('blur', function() {
+      console.log($(this).attr('id'), $(this).val(), $('#display').val())
+      if ( $(this).data('initial-value') !== $(this).val() ) {
+        localStorage.setItem($(this).attr('id'), $(this).val());
+        ui.build($('#display').val(), new Date(Date.parse($(this).val())));
+      }
+      $(this).removeData('initial-value');
+    });
+    $('#date').on('blur', function () {
+      if ( $(this).data('initial-value') !== $(this).val() ) {
+        let dateParts = $(this).val().split('-');
+        if ( $('#month').length > 0 ) {
+          $('#month').val(parseInt(dateParts[1])-1);
+        }
+
+        if ( $('#year').length > 0 ) {
+          $('#year').val(dateParts[0]);
+        }
+
+        console.log($(this).attr('id'), $(this).val(), $('#display').val())
+        localStorage.setItem($(this).attr('id'), $(this).val());
+        ui.build($('#display').val(), calendar.dateFromString($(this).val()));
+      }
+      $(this).removeData('initial-value');
+    });
+
+    $(document).ready(ui.start);
   </script>
 </html>
