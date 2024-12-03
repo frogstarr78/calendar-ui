@@ -39,7 +39,7 @@
         text-align: left;
         vertical-align: top;
         width: 900px;
-        height: 100px;
+        height: 120px;
       }
       
       #ui {
@@ -84,19 +84,19 @@
         text-align: middle;
       }
 
-      .dark01 { background-color: rgb(0,     0,   0); color: rgb(256, 256, 256); }
-      .dark02,.dark24 { background-color: rgb(22,   22,  22); color: rgb(234, 234, 234); }
-      .dark03,.dark23 { background-color: rgb(44,   44,  44); color: rgb(212, 212, 212); }
-      .dark04,.dark22 { background-color: rgb(66,   66,  66); color: rgb(190, 190, 190); }
-      .dark05,.dark21 { background-color: rgb(88,   88,  88); color: rgb(190, 190, 190); }
-      .dark06,.dark20 { background-color: rgb(110, 110, 110); color: rgb(190, 190, 190); }
-      .dark07,.dark19 { background-color: rgb(132, 132, 132); color: rgb(212, 212, 212); }
-      .dark08,.dark18 { background-color: rgb(154, 154, 154); color: rgb(212, 212, 212); }
-      .dark09,.dark17 { background-color: rgb(176, 176, 176); color: rgb( 80,  80,  80); }
-      .dark10,.dark16 { background-color: rgb(198, 198, 198); color: rgb( 58,  58,  58); }
-      .dark11,.dark15 { background-color: rgb(220, 220, 220); color: rgb( 36,  36,  36); }
-      .dark12,.dark14 { background-color: rgb(242, 242, 242); color: rgb( 14,  14,  14); }
-      .dark13 { background-color: rgb(256, 256, 256); color: rgb(  0,   0,   0); }
+      .dark01,.dark00 { background-color: rgb(0,     0,   0); color: rgb(256, 256, 256); }
+      .dark02,.dark24 { background-color: rgb(44,   44,  44); color: rgb(234, 234, 234); }
+      .dark03,.dark23 { background-color: rgb(66,   66,  66); color: rgb(212, 212, 212); }
+      .dark04,.dark22 { background-color: rgb(88,   88,  88); color: rgb(190, 190, 190); }
+      .dark05,.dark21 { background-color: rgb(110, 110, 110); color: rgb(190, 190, 190); }
+      .dark06,.dark20 { background-color: rgb(132, 132, 132); color: rgb(190, 190, 190); }
+      .dark07,.dark19 { background-color: rgb(154, 154, 154); color: rgb(212, 212, 212); }
+      .dark08,.dark18 { background-color: rgb(176, 176, 176); color: rgb(212, 212, 212); }
+      .dark09,.dark17 { background-color: rgb(198, 198, 198); color: rgb( 80,  80,  80); }
+      .dark10,.dark16 { background-color: rgb(220, 220, 220); color: rgb( 58,  58,  58); }
+      .dark11,.dark15 { background-color: rgb(242, 242, 242); color: rgb( 36,  36,  36); }
+      .dark12,.dark14 { background-color: rgb(256, 256, 256); color: rgb( 14,  14,  14); }
+      .dark13 {         background-color: rgb(256, 256, 256); color: rgb(  0,   0,   0); }
     </style>
   </head>
 
@@ -128,35 +128,32 @@
          <caption>Month</caption>
          <thead>
            <tr class="row1" id="controls">
-             <th class="cell0" colspan="3">&nbsp;</th>
-             <th class="cell1"><input name="month" id="month" class="month_field" type="month"/></th>
-             <th class="cell2" colspan="3">&nbsp;</th>
+            <th class="cell0">
+              <select name="month" id="month" class="month_field"></select>
+              <input name="year" id="year"    class="year_field"  type="number" min="1970" max="2035" />
+            </th>
            </tr>
            <tr class="row2">
-             <td></td>
-             <th class="cell1 middle">
-               <div style="text-align: center; display: flex; justify-content: space-evenly;">
+             <th class="cell0 middle">
+               <div style="text-align: center; display: flex; justify-content: space-between;">
+                 <label id="pr"><button id="prev"> << </button></label>
                  <label> Display: <select name="display" id="display"></select></label>
-                 <label id="mn">First Minute: <select id="first_minute"></select></label>
-                 <!-- ^ case hour -->
-                 <label id="hr">First Hour: <select   id="first_hour"></select></label>
-                 <!-- ^ case day -->
-                 <label id="da">First Day: <select    id="first_day"></select></label>
-                 <!-- ^ case 'week' || 'work' || 'month' -->
                  <label id="mo">First Month: <select  id="first_month"></select></label>
                  <!-- ^ case 'quarter' || 'year' -->
+                 <label id="da">First Day: <select    id="first_day"></select></label>
+                 <!-- ^ case 'week' || 'work' || 'month' -->
+                 <label id="hr">First Hour: <select   id="first_hour"></select></label>
+                 <!-- ^ case day -->
+                 <label id="mn">First Minute: <select id="first_minute"></select></label>
+                 <!-- ^ case hour -->
+                 <label id="fl">Disable Follow <input type="checkbox" name="follow" id="follow" value="false" /></label>
+                 <label id="nx"><button id="next"> >> </button></label>
                </div>
              </th>
-             <td></td>
            </tr>
          </thead>
          <tbody class="container"></tbody>
          <tfoot>
-           <tr>
-             <td class="prev" id="prev"> << </td>
-             <td class="middle">&nbsp;</td>
-             <td class="next" id="next"> >> </td>
-           </tr>
          </tfoot>
        </table>
      </div>
@@ -236,7 +233,14 @@
       if ( $(this).data('initial-value') !== $(this).val() ) {
         let dateParts = $(this).val().split('-');
         if ( $('#month').length > 0 ) {
-          $('#month').val(parseInt(dateParts[1])-1);
+          $('#month option').each(function (i, opt) {
+            if ( parseInt($(opt).val()) === parseInt(dateParts[1])-1 ) {
+              $(opt).attr('selected', 'selected');
+            } else {
+              $(opt).removeAttr('selected');
+            }
+          });
+          $('#month').val(parseInt(dateParts[1])-1).trigger('change');
         }
 
         if ( $('#year').length > 0 ) {
