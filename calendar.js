@@ -100,6 +100,38 @@ const calendar = {
 
   getDaysInYear: (year) => calendar.isLeapYear(year) ? 366 : 365,
 
+  iterToDate: function*(year, month, date=366) { 
+    util.assertInstance(year, Number);
+    util.assertInstance(month, Number);
+    util.assertInstance(date, Number);
+
+    for ( const mon of calendar.iterYearByMonth(year) ) {
+      for ( const day of calendar.iterMonthByDay(mon.getFullYear(), mon.getMonth()) ) {
+        if ( util.equalArrays(calendar.compBy(day, new Date(year, month, date)), [0, 0, 0]) ) {
+          return day;
+        }
+        yield day
+      }
+    }
+    return 
+  },
+
+  iterHourByMinute: function*(year, month, date=1) {
+    let minMin = (localStorage.getItem('first_minute') === 'now' ? when.getMinutes() : 0);
+    let maxMin = 60 + (localStorage.getItem('first_minute') === 'now' ? when.getMinutes() : 0);
+    for (let i=minMin; i < maxMin; i++) {
+      yield new Date(year, month, date, i);
+    }
+  },
+
+  iterDayByHour: function*(year, month, date=1, hour=0) {
+    let initHour = new Date(year, month%12, date%31, hour%24);
+    let minHr = (localStorage.getItem('first_hour') === 'now' ? initHour.getHours() : 0);
+    for (let i=minHr; i <= minHr + 24; i++) {
+      yield [new Date(year, month, date, i), i == minHr];
+    }
+  },
+
   iterWeekByDay: function*(year, month, date=1) {
     util.assertInstance(year, Number);
     util.assertInstance(month, Number);
@@ -121,27 +153,22 @@ const calendar = {
     }
   },
 
-  iterToDate: function*(year, month, date=366) { 
-    util.assertInstance(year, Number);
-    util.assertInstance(month, Number);
-    util.assertInstance(date, Number);
-
-    for ( const mon of calendar.iterYearByMonth(year) ) {
-      for ( const day of calendar.iterMonthByDay(mon.getFullYear(), mon.getMonth()) ) {
-        if ( util.equalArrays(calendar.compBy(day, new Date(year, month, date)), [0, 0, 0]) ) {
-          return day;
-        }
-        yield day
-      }
-    }
-    return 
-  },
-
   iterYearByMonth: function*(year) {
     util.assertInstance(year, Number);
 
     for ( let i = 0; i < 12; i++ ) {
       yield new Date(year, i, 1);
+    }
+  },
+
+  iterQuarterByMonth: function*(num, year) {
+    util.assertInstance(num, Number);
+    util.assertBounds(num, 1, 4);
+    util.assertInstance(year, Number);
+
+    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.getQuarterNumber(i) == num);
+    for ( let i = 0; i < months.length; i++ ) {
+      yield new Date(year, calendar.MONTH_NAMES.indexOf(months[i]), 1);
     }
   },
 
@@ -188,17 +215,6 @@ const calendar = {
       return 1
     } else {
       return year.slice(1, calendar.getDayOfYear(date)+1).reduce((sum, d) => sum + (d.getDay() === 0 ? 1 : 0), 1);
-    }
-  },
-
-  iterQuarterByMonth: function*(num, year) {
-    util.assertInstance(num, Number);
-    util.assertBounds(num, 1, 4);
-    util.assertInstance(year, Number);
-
-    let months = calendar.MONTH_NAMES.filter((e, i) => calendar.getQuarterNumber(i) == num);
-    for ( let i = 0; i < months.length; i++ ) {
-      yield new Date(year, calendar.MONTH_NAMES.indexOf(months[i]), 1);
     }
   },
 
@@ -428,7 +444,21 @@ const ui = {
         let minMin = (localStorage.getItem('first_minute') === 'now' ? when.getMinutes() : 0), maxMin = 60 + (localStorage.getItem('first_minute') === 'now' ? when.getMinutes() : 0);
         for (let i=minMin; i < maxMin; i++) {
           let hr = ( when.getHours() + ( i > 60 ? 1 : 0 ) ) % 24;
-          $('#ui .container').append(`<tr class="row${i}"><td colspan="3" class="cell1 hour"><span class="time">${util.fmt(hr)}:${util.fmt(i%60)}</span></td></tr>`);
+          let time = `${util.fmt(hr)}:${util.fmt(i%60)}`;
+          let el = $(`<tr class="row${i}">` +
+          '  <td colspan="3" class="cell1 hour"' +
+          `      data-year="${when.getFullYear()}"` +
+          `      data-month="${when.getMonth()}"` +
+          `      data-week="${calendar.getWeekNumber(when)}"` +
+          `      data-date="${when.getDate()}"` +
+          `      data-day="${when.getDay()}"` +
+          `      data-day-of-year="${calendar.getDayOfYear(when)}"` +
+          `      data-hour="${hr}"` +
+          `      data-time="${time}"` +
+          `    ><span class="time">${time}</span>` +
+          '  </td>' +
+          '</tr>');
+          $('#ui .container').append(el);
         }
         $('#hr,#da,#mo,#fl').hide();
         $('#mn').show();
@@ -440,20 +470,22 @@ const ui = {
           '</th>')
         $('#controls').append(cell_html);
         $('#ui .weekdays').remove();
-        let minHr = (localStorage.getItem('first_hour') === 'now' ? when.getHours() : 0);
-        for (let i=minHr; i <= minHr + 24; i++) {
-          let timeStr = ( i == minHr ? when.toISOString().split(':', 2).join(':') : when.toISOString().split(':', 1) + ':00' ).replace('T', ' ');
-          let el = $(`<tr class="row${i}">` + 
+        for( const [hour, firstHour] of calendar.iterDayByHour(when.getFullYear(), when.getMonth(), when.getDate(), when.getHours()) {
+          let time = `${hour.toISOString().split('T')[0]} ${util.fmt(hour.getHours())}:00`;
+          if ( firstHour ) {
+            time = hour.toISOString().split(':', 2).join(':').replace('T', ' ');
+          }
+          let el = $(`<tr class="row${hour.getHours()}">` + 
           `  <td colspan="3" class="cell1 hour" ` + 
-          `      data-year="${when.getFullYear()}"` +
-          `      data-month="${when.getMonth()}"` +
-          `      data-week="${calendar.getWeekNumber(when)}"` +
-          `      data-date="${when.getDate()}"` +
-          `      data-day="${when.getDay()}"` +
-          `      data-day-of-year="${calendar.getDayOfYear(when)}"` +
-          `      data-hour="${when.getHours()}"` +
-          `      title="${timeStr}"` +
-          `      ><span class="dark${util.fmt(i)}">${util.fmt(i%24)}</span></td>` +
+          `      data-year="${hour.getFullYear()}"` +
+          `      data-month="${hour.getMonth()}"` +
+          `      data-week="${calendar.getWeekNumber(hour)}"` +
+          `      data-date="${hour.getDate()}"` +
+          `      data-day="${hour.getDay()}"` +
+          `      data-day-of-year="${calendar.getDayOfYear(hour)}"` +
+          `      data-hour="${hour.getHours()}"` +
+          `      title="${time}"` +
+          `      ><span class="dark${util.fmt(hour.getHours())}">${util.fmt(hour.getHours())}</span></td>` +
           `</tr>`)
           $('#ui .container').append(el);
         }
