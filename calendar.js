@@ -380,6 +380,12 @@ const ui = {
     
     $('.time').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
     //$('body').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
+    if ( $('#display').val() == 'day' ) {
+      if ( when.getMinutes() % 2 == 0 && !$('#follow').prop('disabled') && !$('#follow').prop('checked') ) {
+        ui.shrinkHour(when);
+      }
+      $('.hour:first').prop('title', [util.fmt(when.getHours()), util.fmt(when.getMinutes())].join(':'));
+    }
   },
 
   updateWeekDays: function(parent, abbrev=false) {
@@ -497,8 +503,8 @@ const ui = {
         }
         $('#mn,#da,#mo').hide();
         $('#hr,#fl').show();
+        $('#follow').prop('disabled', false);
         ui.shrinkHour(when, false);
-        setInterval(() => ui.shrinkHour(when), 120000);
         break;
       case 'week':
         $('#controls').empty();
@@ -532,6 +538,7 @@ const ui = {
         break;
       case 'work':
         $('#controls').empty();
+        $('#ui .weekdays').remove();
         var cell_html = $('<th colspan="3" class="cell0">&nbsp;</th>' + 
           '<th class="cell1">' +
           `  <input type="number" name="week" id="week" class="week_field" min="1" max="${calendar.getWeekNumber(new Date(when.getFullYear(), 11, 31))}" value="${calendar.getWeekNumber(when)}" />` + 
@@ -571,8 +578,6 @@ const ui = {
         $('#ui thead').append(row);
         $('#mn,#hr,#mo').hide();
         $('#da,#fl').show();
-        calendar.WEEKDAY_NAMES.forEach((d) => ui.options.week.options[d.toLowerCase()] = d);
-        calendar.MONTH_NAMES.forEach((m)   => ui.options.year.options[m.toLowerCase()] = m);
         cspan = 7;
         break;
       case 'quarter':
@@ -647,6 +652,9 @@ const ui = {
       $('#zone').append(`<option value="${e}"${sel}>${e}</option>`);
     });
 
+    calendar.WEEKDAY_NAMES.forEach((d) => ui.options.week.options[d.toLowerCase()] = d);
+    calendar.MONTH_NAMES.forEach((m)   => ui.options.year.options[m.toLowerCase()] = m);
+
     Object.entries(ui.options).forEach(function ([key, opt]) {
       Object.entries(opt.options).forEach(function ([val, txt]) {
         let eid = `#first_${opt.first}`;
@@ -665,6 +673,7 @@ const ui = {
     });
 
     ui.storage_items.map(db.loadStorage);
+
     ui.build(localStorage.getItem('display'), when);
     setInterval(ui.updateDateTime, 100);
 
