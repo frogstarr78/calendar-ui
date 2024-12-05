@@ -27,7 +27,7 @@ const util = {
     return true;
   },
   range: function(start, end, value) {
-    try{ 
+    try{
       assertInstance(start, Number)
       assertInstance(end, Number)
     } catch {
@@ -87,20 +87,20 @@ const calendar = {
         2: 31,
         April: 30,
         3: 30,
-        May: 31,  
-        4: 31,  
-        June: 30, 
-        5: 30, 
-        July: 31, 
-        6: 31, 
-        August: 31, 
-        7: 31, 
-        September: 30, 
-        8: 30, 
-        October: 31, 
-        9: 31, 
-        November: 30, 
-        10: 30, 
+        May: 31,
+        4: 31,
+        June: 30,
+        5: 30,
+        July: 31,
+        6: 31,
+        August: 31,
+        7: 31,
+        September: 30,
+        8: 30,
+        October: 31,
+        9: 31,
+        November: 30,
+        10: 30,
         December: 31,
         11: 31
       }[month]
@@ -109,7 +109,7 @@ const calendar = {
 
   getDaysInYear: (year) => calendar.isLeapYear(year) ? 366 : 365,
 
-  iterToDate: function*(year, month, date=366) { 
+  iterToDate: function*(year, month, date=366) {
     util.assertInstance(year, Number);
     util.assertInstance(month, Number);
     util.assertInstance(date, Number);
@@ -122,7 +122,7 @@ const calendar = {
         yield day
       }
     }
-    return 
+    return
   },
 
   iterHourByMinute: function*(year, month, date=1) {
@@ -237,7 +237,7 @@ const calendar = {
   compBy: function(l, r, by='date') {
     util.assertInstance(l, Date);
     util.assertInstance(r, Date);
-    
+
     let byAttributes = ['year', 'month', 'date', 'quarter', 'hour', 'minute']
     if ( ! byAttributes.includes(by) ) {
       throw new Error(`The supplied by argument ${by} should be one of these values: ${byAttributes.join(', ')}.`);
@@ -366,7 +366,7 @@ const ui = {
       display: 'Year',
       first: 'month',
       options: {
-        'quarter': 'Quarter', 
+        'quarter': 'Quarter',
         'current': 'Current'
       }
     }
@@ -377,7 +377,7 @@ const ui = {
     $('#hour').text(util.fmt(when.getHours()));
     $('#minute').text(util.fmt(when.getMinutes()));
     $('#second').text(util.fmt(when.getSeconds()));
-    
+
     $('.time').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
     //$('body').removeClass().addClass( `dark${util.fmt(when.getHours())}` );
     if ( $('#display').val() == 'day' ) {
@@ -452,7 +452,7 @@ const ui = {
       case 'hour':
         $('#controls').empty();
         var cell_html = $('<th class="cell0">' +
-          `  <input type="number" name="hour" id="hour" class="hour_field" min="0" max="24" value="${when.getHours()}" />` + 
+          `  <input type="number" name="hour" id="hour" class="hour_field" min="0" max="24" value="${when.getHours()}" />` +
           '</th>')
         $('#controls').append(cell_html);
         $('#ui .weekdays').remove();
@@ -481,14 +481,14 @@ const ui = {
       case 'day':
         $('#controls').empty();
         var cell_html = $('<th class="cell0">' +
-          `  <input type="number" name="day" id="date" class="day_field" min="1" max="${calendar.getDaysInMonth(when)}" value="${when.getDate()}" />` + 
+          `  <input type="number" name="day" id="date" class="day_field" min="1" max="${calendar.getDaysInMonth(when)}" value="${when.getDate()}" />` +
           '</th>')
         $('#controls').append(cell_html);
         $('#ui .weekdays').remove();
         for( const [hour, firstHour] of calendar.iterDayByHour(when.getFullYear(), when.getMonth(), when.getDate(), when.getHours())) {
           let time = [util.fmt(hour.getHours()), util.fmt( firstHour ? when.getMinutes() : '00' )].join(':');
-          let el = $(`<tr class="row${hour.getHours()}">` + 
-          `  <td colspan="3" class="cell1 hour" ` + 
+          let el = $(`<tr class="row${hour.getHours()}">` +
+          `  <td colspan="3" class="cell1 hour" ` +
           `      data-year="${hour.getFullYear()}"` +
           `      data-month="${hour.getMonth()}"` +
           `      data-week="${calendar.getWeekNumber(hour)}"` +
@@ -508,9 +508,9 @@ const ui = {
         break;
       case 'week':
         $('#controls').empty();
-        var cell_html = $('<th colspan="3" class="cell0">&nbsp;</th>' + 
+        var cell_html = $('<th colspan="3" class="cell0">&nbsp;</th>' +
           '<th class="cell1">' +
-          `  <input type="number" name="week" id="week" class="week_field" min="1" max="${calendar.getWeekNumber(new Date(when.getFullYear(), 11, 31))}" value="${calendar.getWeekNumber(when)}" />` + 
+          `  <input type="number" name="week" id="week" class="week_field" min="1" max="${calendar.getWeekNumber(new Date(when.getFullYear(), 11, 31))}" value="${calendar.getWeekNumber(when)}" />` +
           '</th>' +
           '<th colspan="3" class="cell2">&nbsp;</th>')
         $('#controls').append(cell_html);
@@ -539,9 +539,9 @@ const ui = {
       case 'work':
         $('#controls').empty();
         $('#ui .weekdays').remove();
-        var cell_html = $('<th colspan="3" class="cell0">&nbsp;</th>' + 
+        var cell_html = $('<th colspan="3" class="cell0">&nbsp;</th>' +
           '<th class="cell1">' +
-          `  <input type="number" name="week" id="week" class="week_field" min="1" max="${calendar.getWeekNumber(new Date(when.getFullYear(), 11, 31))}" value="${calendar.getWeekNumber(when)}" />` + 
+          `  <input type="number" name="week" id="week" class="week_field" min="1" max="${calendar.getWeekNumber(new Date(when.getFullYear(), 11, 31))}" value="${calendar.getWeekNumber(when)}" />` +
           '</th>' +
           '<th colspan="3" class="cell2">&nbsp;</th>')
         $('#controls').append(cell_html);
@@ -559,9 +559,9 @@ const ui = {
       case 'month':
         $('#controls').empty();
         var cell_html = $('' +
-          '<th class="cell0" colspan="3">&nbsp;</th>' + 
+          '<th class="cell0" colspan="3">&nbsp;</th>' +
           '<th class="cell1">' +
-          '  <select name="month" id="month" class="month_field">' + 
+          '  <select name="month" id="month" class="month_field">' +
           '  </select>' +
           `  <input name="year" id="year"    class="year_field"  type="number" min="1970" max="2035" value="${when.getFullYear()}" />` +
           '</th>' +
@@ -627,7 +627,7 @@ const ui = {
     $('#ui > caption').text(util.capitalize(display));
     $('#ui .middle').attr('colspan', String(cspan)).attr('colspan', Number(cspan));
   },
-  
+
   shrinkHour: function (when, allowReload=true) {
     util.assertInstance(when, Date);
 
