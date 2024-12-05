@@ -4,7 +4,16 @@ var year;
 
 const util = {
   capitalize: (v) => v[0].toUpperCase() + v.slice(1),
-  fmt: (v) => ( ( parseInt(v) < 10 ) ? `0${v}` : v ),
+  fmt: function(v) {
+    let nv = parseInt(v);
+    if ( nv === 0 ) {
+      return '00';
+    } else if ( nv < 10 ) {
+      return '0' + nv;
+    } else {
+      return v.toString();
+    }
+  },
   assertInstance: function(o, typeOrTypes, msg=`Object ${o} is not type ${typeOrTypes}. It is type ${typeof typeOrTypes} instead.`) {
     if ( (Array.isArray(typeOrTypes) ? typeOrTypes : [typeOrTypes]).some((type) => ( o === undefined || ! o instanceof type )) ){
       throw new Error(msg);
@@ -470,11 +479,8 @@ const ui = {
           '</th>')
         $('#controls').append(cell_html);
         $('#ui .weekdays').remove();
-        for( const [hour, firstHour] of calendar.iterDayByHour(when.getFullYear(), when.getMonth(), when.getDate(), when.getHours()) {
-          let time = `${hour.toISOString().split('T')[0]} ${util.fmt(hour.getHours())}:00`;
-          if ( firstHour ) {
-            time = hour.toISOString().split(':', 2).join(':').replace('T', ' ');
-          }
+        for( const [hour, firstHour] of calendar.iterDayByHour(when.getFullYear(), when.getMonth(), when.getDate(), when.getHours())) {
+          let time = [util.fmt(hour.getHours()), util.fmt( firstHour ? when.getMinutes() : '00' )].join(':');
           let el = $(`<tr class="row${hour.getHours()}">` + 
           `  <td colspan="3" class="cell1 hour" ` + 
           `      data-year="${hour.getFullYear()}"` +
