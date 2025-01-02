@@ -154,7 +154,7 @@ const calendar = {
 
     let firstDay = new Date(year, month%12, date%31);
     let minDay   = calendar.getAdjustedFirstDayOfWeek(firstDay, wide, initializedTo);
-    let when, d  = minDay;
+    let when     = minDay.getDate();
     for (let i = minDay; i < minDay+wide; i++) {
       when = new Date(year, month, i);
       yield [when, i == minDay];
@@ -232,16 +232,19 @@ const calendar = {
     util.assertInstance(adjustment, String);
 
     if ( adjustment.toLowerCase() === 'today' ) {
-      return date.getDate();
+      adjustment = calendar.WEEKDAY_NAMES[date.getDay()];
     }
     let i = calendar.WEEKDAY_NAMES.indexOf(util.capitalize(adjustment));
-    console.log(i, size, date.getDate())
 
+    let adjustedfirstDate = date.getDate();
     if ( date.getDay() < i ) {
-      return date.getDate()-(size-i);
+      adjustedfirstDate = date.getDate()-(size-i);
+    } else if ( date.getDay() == i ) {
+      adjustedfirstDate = date.getDate();
     } else {
-      return date.getDate()-(date.getDay()+i);
+      adjustedfirstDate = date.getDate()-(date.getDay()+i);
     }
+    return new Date(date.getFullYear(), date.getMonth(), adjustedfirstDate);
   },
 
   getWeekNumber: function(date) {
@@ -421,11 +424,9 @@ const ui = {
 
     parent.empty();
     let wide = ( $('#display').val() === 'work' ? 5 : 7 );
-    let sortedDays = calendar.weekdayQueue(calendar.getAdjustedFirstDayOfWeek(when, wide, localStorage.getItem('first_day'))%6);
-    console.log(when, wide, calendar.getAdjustedFirstDayOfWeek(when, wide, localStorage.getItem('first_day'))%6, sortedDays);
-    if ( $('#display').val() == 'work' ) {
-      sortedDays = sortedDays.slice(0, 5)
-    }
+    let firstDateofWeek = calendar.getAdjustedFirstDayOfWeek(when, wide, localStorage.getItem('first_day'));
+    let sortedDays = calendar.weekdayQueue(firstDateofWeek.getDay());
+    console.log(when, firstDateofWeek, sortedDays);
     sortedDays.forEach(function (v, i) {
       let wdnam = ( abbrev === true ? v.slice(0, 3) : v );
       parent.append(`<th class="row${i}">${wdnam}</th>`);
