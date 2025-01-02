@@ -66,7 +66,13 @@ const calendar = {
   QUARTERS: [[0, 1, 2], [3, 4, 5], [6, 7, 8], ['October', 'November', 'December']],
   WEEKDAY_NAMES: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 
-  weekdayQueue: (first) => [...calendar.WEEKDAY_NAMES.slice(first, 7), ...calendar.WEEKDAY_NAMES.slice(0, first)],
+  weekdayQueue: function(first){
+    let f = first
+    if ( first instanceof Date ) {
+      f = first.getDay();
+    }
+    return [...calendar.WEEKDAY_NAMES.slice(f, 7), ...calendar.WEEKDAY_NAMES.slice(0, f)]
+  },
   isLeapYear: function (year) {
     util.assertInstance(year, Number);
 
@@ -147,9 +153,11 @@ const calendar = {
     util.assertInstance(date, Number);
 
     let firstDay = new Date(year, month%12, date%31);
-    let minDay   = calendar.getAdjustedFirstDayOfWeek(firstDay, initializedTo);
+    let minDay   = calendar.getAdjustedFirstDayOfWeek(firstDay, wide, initializedTo);
+    let when, d  = minDay;
     for (let i = minDay; i < minDay+wide; i++) {
-      yield [new Date(year, month, i), i == minDay];
+      when = new Date(year, month, i);
+      yield [when, i == minDay];
     }
   },
 
@@ -218,11 +226,22 @@ const calendar = {
     return Math.ceil((m + 1)/ 3);
   },
 
-  getAdjustedFirstDayOfWeek(date, adjustment='Sunday') {
+  getAdjustedFirstDayOfWeek(date, size=7, adjustment='Sunday') {
     util.assertInstance(date, Date);
+    util.assertInstance(size, Number);
     util.assertInstance(adjustment, String);
 
-    return (adjustment.toLowerCase() === 'today' ? date.getDate() : date.getDate()-(date.getDay()+calendar.WEEKDAY_NAMES.indexOf(util.capitalize(adjustment))));
+    if ( adjustment.toLowerCase() === 'today' ) {
+      return date.getDate();
+    }
+    let i = calendar.WEEKDAY_NAMES.indexOf(util.capitalize(adjustment));
+    console.log(i, size, date.getDate())
+
+    if ( date.getDay() < i ) {
+      return date.getDate()-(size-i);
+    } else {
+      return date.getDate()-(date.getDay()+i);
+    }
   },
 
   getWeekNumber: function(date) {
@@ -401,11 +420,13 @@ const ui = {
     util.assertInstance(abbrev, Boolean);
 
     parent.empty();
-    let sorted_days = calendar.weekdayQueue(calendar.getAdjustedFirstDayOfWeek(when));
+    let wide = ( $('#display').val() === 'work' ? 5 : 7 );
+    let sortedDays = calendar.weekdayQueue(calendar.getAdjustedFirstDayOfWeek(when, wide, localStorage.getItem('first_day'))%6);
+    console.log(when, wide, calendar.getAdjustedFirstDayOfWeek(when, wide, localStorage.getItem('first_day'))%6, sortedDays);
     if ( $('#display').val() == 'work' ) {
-      sorted_days = sorted_days.slice(0, 5)
+      sortedDays = sortedDays.slice(0, 5)
     }
-    sorted_days.forEach(function (v, i) {
+    sortedDays.forEach(function (v, i) {
       let wdnam = ( abbrev === true ? v.slice(0, 3) : v );
       parent.append(`<th class="row${i}">${wdnam}</th>`);
     });
@@ -561,7 +582,7 @@ const ui = {
         $('#ui thead').append(row);
 
         row = $('<tr class="days row1">');
-        for ( const day of calendar.iterWeekByDay(when.getFullYear(), when.getMonth(), when.getDate(), 'Monday', 5) ){
+        for ( const [day, firstDoW] of calendar.iterWeekByDay(when.getFullYear(), when.getMonth(), when.getDate(), 'Monday', 5) ){
           let cell = $(`<td class="cell${day.getDay()} day">${util.fmt(day.getDate())}</td>`);
           cell.addClass(calendar.compBy(day, now).every((x) => x == 0) ? 'today' : '');
           cell.attr('data-year', day.getFullYear());
